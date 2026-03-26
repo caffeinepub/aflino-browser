@@ -306,7 +306,20 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
   const searchEngine = useShortcutsStore((s) => s.searchEngine);
   const googleSearchApiKey = useShortcutsStore((s) => s.googleSearchApiKey);
   const searchEngineCx = useShortcutsStore((s) => s.searchEngineCx);
-  const partnerTrackingId = useShortcutsStore((s) => s.partnerTrackingId);
+  const googlePartnerTrackingId = useShortcutsStore(
+    (s) => s.googlePartnerTrackingId,
+  );
+  const _bingSearchApiKey = useShortcutsStore((s) => s.bingSearchApiKey);
+  const bingPartnershipCampaignId = useShortcutsStore(
+    (s) => s.bingPartnershipCampaignId,
+  );
+  const duckduckgoAffiliateToken = useShortcutsStore(
+    (s) => s.duckduckgoAffiliateToken,
+  );
+  const customEngineUrlPattern = useShortcutsStore(
+    (s) => s.customEngineUrlPattern,
+  );
+  const customAffiliateId = useShortcutsStore((s) => s.customAffiliateId);
   const inAppSearchEnabled = useShortcutsStore((s) => s.inAppSearchEnabled);
   const incrementSearchCount = useShortcutsStore((s) => s.incrementSearchCount);
   const t = useTranslation();
@@ -324,12 +337,21 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
     if (!q) return;
     incrementSearchCount();
 
-    if (inAppSearchEnabled && googleSearchApiKey && searchEngineCx) {
+    // In-app search: only supported for Google (Custom Search API)
+    if (
+      inAppSearchEnabled &&
+      searchEngine === "google" &&
+      googleSearchApiKey &&
+      searchEngineCx
+    ) {
       setActiveSearchQuery(q);
       setSearchLoading(true);
       setSearchResults([]);
       try {
-        const url = `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${searchEngineCx}&q=${encodeURIComponent(q)}`;
+        const trackingParam = googlePartnerTrackingId
+          ? `&ref=${encodeURIComponent(googlePartnerTrackingId)}`
+          : "";
+        const url = `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${searchEngineCx}&q=${encodeURIComponent(q)}${trackingParam}`;
         const res = await fetch(url);
         const data = await res.json();
         setSearchResults(data.items ?? []);
@@ -342,11 +364,42 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
       if (q.match(/^https?:\/\//i) || (!q.includes(" ") && q.includes("."))) {
         onNavigate(q.startsWith("http") ? q : `https://${q}`);
       } else {
-        const baseUrl = SEARCH_ENGINE_URLS[searchEngine];
-        const trackingParam = partnerTrackingId
-          ? `&ref=${encodeURIComponent(partnerTrackingId)}`
-          : "";
-        onNavigate(baseUrl + encodeURIComponent(q) + trackingParam);
+        let searchUrl = "";
+        if (searchEngine === "google") {
+          const tracking = googlePartnerTrackingId
+            ? `&ref=${encodeURIComponent(googlePartnerTrackingId)}`
+            : "";
+          searchUrl =
+            SEARCH_ENGINE_URLS.google + encodeURIComponent(q) + tracking;
+        } else if (searchEngine === "bing") {
+          const tracking = bingPartnershipCampaignId
+            ? `&form=${encodeURIComponent(bingPartnershipCampaignId)}`
+            : "";
+          searchUrl =
+            SEARCH_ENGINE_URLS.bing + encodeURIComponent(q) + tracking;
+        } else if (searchEngine === "duckduckgo") {
+          const tracking = duckduckgoAffiliateToken
+            ? `&t=${encodeURIComponent(duckduckgoAffiliateToken)}`
+            : "";
+          searchUrl =
+            SEARCH_ENGINE_URLS.duckduckgo + encodeURIComponent(q) + tracking;
+        } else if (searchEngine === "custom" && customEngineUrlPattern) {
+          const tracking = customAffiliateId
+            ? `&ref=${encodeURIComponent(customAffiliateId)}`
+            : "";
+          searchUrl =
+            customEngineUrlPattern.replace("{query}", encodeURIComponent(q)) +
+            tracking;
+        } else {
+          searchUrl = SEARCH_ENGINE_URLS[
+            searchEngine as keyof typeof SEARCH_ENGINE_URLS
+          ]
+            ? SEARCH_ENGINE_URLS[
+                searchEngine as keyof typeof SEARCH_ENGINE_URLS
+              ] + encodeURIComponent(q)
+            : SEARCH_ENGINE_URLS.google + encodeURIComponent(q);
+        }
+        onNavigate(searchUrl);
       }
     }
     setSearchVal("");

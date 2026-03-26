@@ -11,16 +11,39 @@ export type Shortcut = {
   isSponsored?: boolean;
 };
 
-export type SearchEngine = "google" | "bing" | "duckduckgo" | "yahoo";
+export type SearchEngine =
+  | "google"
+  | "bing"
+  | "duckduckgo"
+  | "yahoo"
+  | "custom";
 
 export const SEARCH_ENGINE_URLS: Record<SearchEngine, string> = {
   google: "https://www.google.com/search?q=",
   bing: "https://www.bing.com/search?q=",
   duckduckgo: "https://duckduckgo.com/?q=",
   yahoo: "https://search.yahoo.com/search?p=",
+  custom: "",
 };
 
-interface ShortcutsState {
+export interface MultiEngineApiConfig {
+  // Google
+  googleSearchApiKey: string;
+  searchEngineCx: string;
+  googlePartnerTrackingId: string;
+  // Bing
+  bingSearchApiKey: string;
+  bingPartnershipCampaignId: string;
+  // DuckDuckGo
+  duckduckgoAffiliateToken: string;
+  // Custom Engine
+  customEngineUrlPattern: string;
+  customAffiliateId: string;
+  // Global
+  inAppSearchEnabled: boolean;
+}
+
+interface ShortcutsState extends MultiEngineApiConfig {
   aflinoApps: Shortcut[];
   globalBrands: Shortcut[];
   splashLogoUrl: string;
@@ -29,11 +52,9 @@ interface ShortcutsState {
   voiceCameraEnabled: boolean;
   searchEngine: SearchEngine;
   jsEnabled: boolean;
-  googleSearchApiKey: string;
-  searchEngineCx: string;
-  partnerTrackingId: string;
-  inAppSearchEnabled: boolean;
   searchCount: number;
+  // Legacy field kept for backwards compat with existing executeSearch logic
+  partnerTrackingId: string;
   addShortcut: (
     category: "aflinoApps" | "globalBrands",
     shortcut: Omit<Shortcut, "id">,
@@ -58,6 +79,8 @@ interface ShortcutsState {
   setVoiceCameraEnabled: (enabled: boolean) => void;
   setSearchEngine: (engine: SearchEngine) => void;
   setJsEnabled: (enabled: boolean) => void;
+  setMultiEngineConfig: (config: Partial<MultiEngineApiConfig>) => void;
+  /** Legacy alias kept so older callsites don't break */
   setSearchApiConfig: (
     config: Partial<{
       googleSearchApiKey: string;
@@ -90,11 +113,24 @@ export const useShortcutsStore = create<ShortcutsState>()(
       voiceCameraEnabled: true,
       searchEngine: "google",
       jsEnabled: true,
+      searchCount: 0,
+      // Google
       googleSearchApiKey: "",
       searchEngineCx: "",
-      partnerTrackingId: "",
+      googlePartnerTrackingId: "",
+      // Bing
+      bingSearchApiKey: "",
+      bingPartnershipCampaignId: "",
+      // DuckDuckGo
+      duckduckgoAffiliateToken: "",
+      // Custom
+      customEngineUrlPattern: "",
+      customAffiliateId: "",
+      // Global
       inAppSearchEnabled: false,
-      searchCount: 0,
+      // Legacy
+      partnerTrackingId: "",
+
       addShortcut: (category, shortcut) =>
         set((state) => ({
           [category]: [
@@ -123,7 +159,25 @@ export const useShortcutsStore = create<ShortcutsState>()(
       setVoiceCameraEnabled: (enabled) => set({ voiceCameraEnabled: enabled }),
       setSearchEngine: (engine) => set({ searchEngine: engine }),
       setJsEnabled: (enabled) => set({ jsEnabled: enabled }),
-      setSearchApiConfig: (config) => set((state) => ({ ...state, ...config })),
+      setMultiEngineConfig: (config) =>
+        set((state) => ({ ...state, ...config })),
+      setSearchApiConfig: (config) =>
+        set((state) => ({
+          ...state,
+          ...(config.googleSearchApiKey !== undefined && {
+            googleSearchApiKey: config.googleSearchApiKey,
+          }),
+          ...(config.searchEngineCx !== undefined && {
+            searchEngineCx: config.searchEngineCx,
+          }),
+          ...(config.partnerTrackingId !== undefined && {
+            partnerTrackingId: config.partnerTrackingId,
+            googlePartnerTrackingId: config.partnerTrackingId,
+          }),
+          ...(config.inAppSearchEnabled !== undefined && {
+            inAppSearchEnabled: config.inAppSearchEnabled,
+          }),
+        })),
       incrementSearchCount: () =>
         set((state) => ({ searchCount: state.searchCount + 1 })),
     }),

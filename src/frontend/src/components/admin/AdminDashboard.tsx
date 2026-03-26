@@ -252,6 +252,7 @@ const searchEngines: { id: SearchEngine; label: string }[] = [
   { id: "bing", label: "Bing" },
   { id: "duckduckgo", label: "DuckDuckGo" },
   { id: "yahoo", label: "Yahoo" },
+  { id: "custom", label: "Custom Engine" },
 ];
 
 const browserSettingsDefaults = [
@@ -287,10 +288,18 @@ function SettingsSection() {
     setJsEnabled,
     googleSearchApiKey,
     searchEngineCx,
-    partnerTrackingId,
+    googlePartnerTrackingId,
+    bingSearchApiKey,
+    bingPartnershipCampaignId,
+    duckduckgoAffiliateToken,
+    customEngineUrlPattern,
+    customAffiliateId,
     inAppSearchEnabled,
-    setSearchApiConfig,
+    setMultiEngineConfig,
   } = useShortcutsStore();
+  const [activeEngineTab, setActiveEngineTab] = useState<
+    "google" | "bing" | "duckduckgo" | "custom"
+  >("google");
   const [browserSettings, setBrowserSettings] = useState<
     Record<string, boolean>
   >(
@@ -349,97 +358,287 @@ function SettingsSection() {
         </div>
       </div>
 
-      {/* Search API Configuration */}
+      {/* Multi-Engine API Configuration */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="text-base font-semibold text-gray-800 mb-4">
-          Search API Configuration
-        </h3>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="search-api-key"
-              className="text-sm font-medium text-gray-700"
-            >
-              Google Custom Search API Key
-            </label>
-            <input
-              id="search-api-key"
-              type="text"
-              data-ocid="settings.search_api_key.input"
-              placeholder="Enter your API key here..."
-              value={googleSearchApiKey}
-              onChange={(e) =>
-                setSearchApiConfig({ googleSearchApiKey: e.target.value })
-              }
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="search-cx"
-              className="text-sm font-medium text-gray-700"
-            >
-              Search Engine ID (CX)
-            </label>
-            <input
-              id="search-cx"
-              type="text"
-              data-ocid="settings.search_cx.input"
-              placeholder="Enter your CX ID..."
-              value={searchEngineCx}
-              onChange={(e) =>
-                setSearchApiConfig({ searchEngineCx: e.target.value })
-              }
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="partner-tracking"
-              className="text-sm font-medium text-gray-700"
-            >
-              Partner Tracking ID (Affiliate)
-            </label>
-            <input
-              id="partner-tracking"
-              type="text"
-              data-ocid="settings.partner_tracking.input"
-              placeholder="Your tracking ID for revenue share..."
-              value={partnerTrackingId}
-              onChange={(e) =>
-                setSearchApiConfig({ partnerTrackingId: e.target.value })
-              }
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
-            />
-          </div>
-          <div className="border-t border-gray-100 pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-0.5 flex-1 mr-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-gray-700">
-                    Enable In-App Search Results
-                  </span>
-                  <span
-                    title="If ON, results stay inside Aflino. If OFF, users are redirected to the search engine website."
-                    className="cursor-help text-gray-400 text-xs border border-gray-300 rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none"
-                  >
-                    ?
-                  </span>
-                </div>
-                <span className="text-xs text-gray-400">
-                  If ON, results stay inside Aflino. If OFF, users are
-                  redirected to the search engine website.
-                </span>
-              </div>
-              <Toggle
-                value={inAppSearchEnabled}
-                onChange={() =>
-                  setSearchApiConfig({
-                    inAppSearchEnabled: !inAppSearchEnabled,
-                  })
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-gray-800 mb-1">
+            Multi-Engine API Configuration
+          </h3>
+          <p className="text-xs text-gray-400">
+            Configure API keys and affiliate IDs for each search engine. The
+            active engine is controlled by the &ldquo;Search Engine&rdquo;
+            selector below.
+          </p>
+        </div>
+
+        {/* Engine Tabs */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5 overflow-x-auto">
+          {(["google", "bing", "duckduckgo", "custom"] as const).map((tab) => {
+            const labels: Record<string, string> = {
+              google: "Google",
+              bing: "Bing",
+              duckduckgo: "DuckDuckGo",
+              custom: "Custom",
+            };
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveEngineTab(tab)}
+                className={[
+                  "flex-1 min-w-fit px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap",
+                  activeEngineTab === tab
+                    ? "bg-white text-blue-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
+                ].join(" ")}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab: Google */}
+        {activeEngineTab === "google" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                Google Search
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-google-api-key"
+                className="text-sm font-medium text-gray-700"
+              >
+                Google Custom Search API Key
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your API key here..."
+                value={googleSearchApiKey}
+                id="me-google-api-key"
+                onChange={(e) =>
+                  setMultiEngineConfig({ googleSearchApiKey: e.target.value })
                 }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
               />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-google-cx"
+                className="text-sm font-medium text-gray-700"
+              >
+                Search Engine ID (CX)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your CX ID..."
+                value={searchEngineCx}
+                id="me-google-cx"
+                onChange={(e) =>
+                  setMultiEngineConfig({ searchEngineCx: e.target.value })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-google-tracking"
+                className="text-sm font-medium text-gray-700"
+              >
+                Google Partner Tracking ID
+              </label>
+              <input
+                type="text"
+                placeholder="Your Google affiliate / revenue-share tracking ID..."
+                value={googlePartnerTrackingId}
+                id="me-google-tracking"
+                onChange={(e) =>
+                  setMultiEngineConfig({
+                    googlePartnerTrackingId: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Bing */}
+        {activeEngineTab === "bing" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-xs font-semibold text-green-600 uppercase tracking-wide">
+                Bing (Microsoft Advertising)
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-bing-key"
+                className="text-sm font-medium text-gray-700"
+              >
+                Bing Search API Key
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your Bing API key here..."
+                value={bingSearchApiKey}
+                id="me-bing-key"
+                onChange={(e) =>
+                  setMultiEngineConfig({ bingSearchApiKey: e.target.value })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-bing-campaign"
+                className="text-sm font-medium text-gray-700"
+              >
+                Bing Partnership / Campaign ID
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your Bing partnership or campaign ID..."
+                value={bingPartnershipCampaignId}
+                id="me-bing-campaign"
+                onChange={(e) =>
+                  setMultiEngineConfig({
+                    bingPartnershipCampaignId: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Tab: DuckDuckGo */}
+        {activeEngineTab === "duckduckgo" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-orange-500" />
+              <span className="text-xs font-semibold text-orange-600 uppercase tracking-wide">
+                DuckDuckGo (API Partners)
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-ddg-token"
+                className="text-sm font-medium text-gray-700"
+              >
+                DuckDuckGo Affiliate ID / Token
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your DuckDuckGo affiliate ID or partner token..."
+                value={duckduckgoAffiliateToken}
+                id="me-ddg-token"
+                onChange={(e) =>
+                  setMultiEngineConfig({
+                    duckduckgoAffiliateToken: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+              />
+            </div>
+            <p className="text-xs text-gray-400 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2">
+              DuckDuckGo partner integrations are available via the DuckDuckGo
+              API Partners program. The affiliate token is appended as{" "}
+              <code className="font-mono bg-orange-100 px-1 rounded">?t=</code>{" "}
+              on every search.
+            </p>
+          </div>
+        )}
+
+        {/* Tab: Custom Engine */}
+        {activeEngineTab === "custom" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">
+                Custom Engine (Fallback)
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-custom-url"
+                className="text-sm font-medium text-gray-700"
+              >
+                Custom Engine Search URL Pattern
+              </label>
+              <input
+                type="text"
+                placeholder="https://yoursite.com/search?q={query}"
+                value={customEngineUrlPattern}
+                id="me-custom-url"
+                onChange={(e) =>
+                  setMultiEngineConfig({
+                    customEngineUrlPattern: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50 font-mono"
+              />
+              <span className="text-xs text-gray-400">
+                Use{" "}
+                <code className="font-mono bg-gray-100 px-1 rounded">
+                  {"{query}"}
+                </code>{" "}
+                as the placeholder for the search term.
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="me-custom-affiliate"
+                className="text-sm font-medium text-gray-700"
+              >
+                Custom Affiliate ID
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your custom affiliate ID..."
+                value={customAffiliateId}
+                id="me-custom-affiliate"
+                onChange={(e) =>
+                  setMultiEngineConfig({ customAffiliateId: e.target.value })
+                }
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Global: Enable In-App Search */}
+        <div className="border-t border-gray-100 pt-4 mt-5">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-0.5 flex-1 mr-4">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-medium text-gray-700">
+                  Enable In-App Search Results
+                </span>
+                <span
+                  title="If ON, results stay inside Aflino (Google only). If OFF, users are redirected to the selected search engine."
+                  className="cursor-help text-gray-400 text-xs border border-gray-300 rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none"
+                >
+                  ?
+                </span>
+              </div>
+              <span className="text-xs text-gray-400">
+                Applies to the active engine. In-app rendering currently
+                supported for Google Custom Search.
+              </span>
+            </div>
+            <Toggle
+              value={inAppSearchEnabled}
+              onChange={() =>
+                setMultiEngineConfig({
+                  inAppSearchEnabled: !inAppSearchEnabled,
+                })
+              }
+            />
           </div>
         </div>
       </div>
