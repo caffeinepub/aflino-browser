@@ -285,6 +285,11 @@ function SettingsSection() {
     setSearchEngine,
     jsEnabled,
     setJsEnabled,
+    googleSearchApiKey,
+    searchEngineCx,
+    partnerTrackingId,
+    inAppSearchEnabled,
+    setSearchApiConfig,
   } = useShortcutsStore();
   const [browserSettings, setBrowserSettings] = useState<
     Record<string, boolean>
@@ -340,6 +345,101 @@ function SettingsSection() {
               value={voiceCameraEnabled}
               onChange={() => setVoiceCameraEnabled(!voiceCameraEnabled)}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Search API Configuration */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-base font-semibold text-gray-800 mb-4">
+          Search API Configuration
+        </h3>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="search-api-key"
+              className="text-sm font-medium text-gray-700"
+            >
+              Google Custom Search API Key
+            </label>
+            <input
+              id="search-api-key"
+              type="text"
+              data-ocid="settings.search_api_key.input"
+              placeholder="Enter your API key here..."
+              value={googleSearchApiKey}
+              onChange={(e) =>
+                setSearchApiConfig({ googleSearchApiKey: e.target.value })
+              }
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="search-cx"
+              className="text-sm font-medium text-gray-700"
+            >
+              Search Engine ID (CX)
+            </label>
+            <input
+              id="search-cx"
+              type="text"
+              data-ocid="settings.search_cx.input"
+              placeholder="Enter your CX ID..."
+              value={searchEngineCx}
+              onChange={(e) =>
+                setSearchApiConfig({ searchEngineCx: e.target.value })
+              }
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="partner-tracking"
+              className="text-sm font-medium text-gray-700"
+            >
+              Partner Tracking ID (Affiliate)
+            </label>
+            <input
+              id="partner-tracking"
+              type="text"
+              data-ocid="settings.partner_tracking.input"
+              placeholder="Your tracking ID for revenue share..."
+              value={partnerTrackingId}
+              onChange={(e) =>
+                setSearchApiConfig({ partnerTrackingId: e.target.value })
+              }
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+            />
+          </div>
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-0.5 flex-1 mr-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-gray-700">
+                    Enable In-App Search Results
+                  </span>
+                  <span
+                    title="If ON, results stay inside Aflino. If OFF, users are redirected to the search engine website."
+                    className="cursor-help text-gray-400 text-xs border border-gray-300 rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none"
+                  >
+                    ?
+                  </span>
+                </div>
+                <span className="text-xs text-gray-400">
+                  If ON, results stay inside Aflino. If OFF, users are
+                  redirected to the search engine website.
+                </span>
+              </div>
+              <Toggle
+                value={inAppSearchEnabled}
+                onChange={() =>
+                  setSearchApiConfig({
+                    inAppSearchEnabled: !inAppSearchEnabled,
+                  })
+                }
+              />
+            </div>
           </div>
         </div>
       </div>

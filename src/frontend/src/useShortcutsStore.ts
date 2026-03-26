@@ -29,6 +29,11 @@ interface ShortcutsState {
   voiceCameraEnabled: boolean;
   searchEngine: SearchEngine;
   jsEnabled: boolean;
+  googleSearchApiKey: string;
+  searchEngineCx: string;
+  partnerTrackingId: string;
+  inAppSearchEnabled: boolean;
+  searchCount: number;
   addShortcut: (
     category: "aflinoApps" | "globalBrands",
     shortcut: Omit<Shortcut, "id">,
@@ -53,6 +58,15 @@ interface ShortcutsState {
   setVoiceCameraEnabled: (enabled: boolean) => void;
   setSearchEngine: (engine: SearchEngine) => void;
   setJsEnabled: (enabled: boolean) => void;
+  setSearchApiConfig: (
+    config: Partial<{
+      googleSearchApiKey: string;
+      searchEngineCx: string;
+      partnerTrackingId: string;
+      inAppSearchEnabled: boolean;
+    }>,
+  ) => void;
+  incrementSearchCount: () => void;
 }
 
 export const useShortcutsStore = create<ShortcutsState>()(
@@ -76,6 +90,11 @@ export const useShortcutsStore = create<ShortcutsState>()(
       voiceCameraEnabled: true,
       searchEngine: "google",
       jsEnabled: true,
+      googleSearchApiKey: "",
+      searchEngineCx: "",
+      partnerTrackingId: "",
+      inAppSearchEnabled: false,
+      searchCount: 0,
       addShortcut: (category, shortcut) =>
         set((state) => ({
           [category]: [
@@ -104,6 +123,9 @@ export const useShortcutsStore = create<ShortcutsState>()(
       setVoiceCameraEnabled: (enabled) => set({ voiceCameraEnabled: enabled }),
       setSearchEngine: (engine) => set({ searchEngine: engine }),
       setJsEnabled: (enabled) => set({ jsEnabled: enabled }),
+      setSearchApiConfig: (config) => set((state) => ({ ...state, ...config })),
+      incrementSearchCount: () =>
+        set((state) => ({ searchCount: state.searchCount + 1 })),
     }),
     { name: "aflino_shortcuts" },
   ),

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { adminConfig } from "../adminConfig";
 import { useTranslation } from "../i18n/useTranslation";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
+import { SearchResultsPage } from "./SearchResultsPage";
 
 // SpeechRecognition cross-browser types
 interface ISpeechRecognition extends EventTarget {
@@ -289,12 +290,25 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
   const [searchVal, setSearchVal] = useState("");
   const [listening, setListening] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [searchResults, setSearchResults] = useState<Array<{
+    title: string;
+    link: string;
+    snippet: string;
+    pagemap?: { cse_thumbnail?: Array<{ src: string }> };
+  }> | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [activeSearchQuery, setActiveSearchQuery] = useState("");
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
   const aflinoApps = useShortcutsStore((s) => s.aflinoApps);
   const globalBrands = useShortcutsStore((s) => s.globalBrands);
   const voiceCameraEnabled = useShortcutsStore((s) => s.voiceCameraEnabled);
   const searchEngine = useShortcutsStore((s) => s.searchEngine);
+  const googleSearchApiKey = useShortcutsStore((s) => s.googleSearchApiKey);
+  const searchEngineCx = useShortcutsStore((s) => s.searchEngineCx);
+  const partnerTrackingId = useShortcutsStore((s) => s.partnerTrackingId);
+  const inAppSearchEnabled = useShortcutsStore((s) => s.inAppSearchEnabled);
+  const incrementSearchCount = useShortcutsStore((s) => s.incrementSearchCount);
   const t = useTranslation();
 
   useEffect(() => {
@@ -305,25 +319,41 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
     );
   }, []);
 
-  const handleSearch = (query?: string) => {
+  const executeSearch = async (query?: string) => {
     const q = (query ?? searchVal).trim();
-    if (q) {
-      if (
-        q.startsWith("http://") ||
-        q.startsWith("https://") ||
-        /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(q)
-      ) {
+    if (!q) return;
+    incrementSearchCount();
+
+    if (inAppSearchEnabled && googleSearchApiKey && searchEngineCx) {
+      setActiveSearchQuery(q);
+      setSearchLoading(true);
+      setSearchResults([]);
+      try {
+        const url = `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${searchEngineCx}&q=${encodeURIComponent(q)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        setSearchResults(data.items ?? []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    } else {
+      if (q.match(/^https?:\/\//i) || (!q.includes(" ") && q.includes("."))) {
         onNavigate(q.startsWith("http") ? q : `https://${q}`);
       } else {
         const baseUrl = SEARCH_ENGINE_URLS[searchEngine];
-        onNavigate(baseUrl + encodeURIComponent(q));
+        const trackingParam = partnerTrackingId
+          ? `&ref=${encodeURIComponent(partnerTrackingId)}`
+          : "";
+        onNavigate(baseUrl + encodeURIComponent(q) + trackingParam);
       }
-      setSearchVal("");
     }
+    setSearchVal("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
+    if (e.key === "Enter") void executeSearch();
   };
 
   const startVoiceSearch = () => {
@@ -345,7 +375,7 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
       const transcript = event.results[0][0].transcript;
       setSearchVal(transcript);
       setListening(false);
-      handleSearch(transcript);
+      void executeSearch(transcript);
     };
 
     recognition.onerror = (event: ISpeechRecognitionErrorEvent) => {
@@ -391,6 +421,21 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
 
   return (
     <div data-ocid="dashboard.page" className="h-full overflow-y-auto bg-white">
+      {(searchResults !== null || searchLoading) && (
+        <SearchResultsPage
+          query={activeSearchQuery}
+          results={searchResults ?? []}
+          loading={searchLoading}
+          onClose={() => {
+            setSearchResults(null);
+            setSearchLoading(false);
+          }}
+          onNavigate={(url) => {
+            setSearchResults(null);
+            onNavigate(url);
+          }}
+        />
+      )}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

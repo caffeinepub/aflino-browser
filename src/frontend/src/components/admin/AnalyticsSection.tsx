@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useShortcutsStore } from "../../useShortcutsStore";
 
 const BLUE = "#1A73E8";
 
@@ -62,6 +63,9 @@ const keyMetrics = [
 ];
 
 export function AnalyticsSection() {
+  const searchCount = useShortcutsStore((s) => s.searchCount);
+  const estimatedRevenue = (searchCount * 0.05).toFixed(2);
+
   return (
     <div data-ocid="admin.analytics.panel" className="flex flex-col gap-6">
       {/* Header */}
@@ -89,6 +93,35 @@ export function AnalyticsSection() {
             <span className="text-xs text-gray-400">{metric.sub}</span>
           </div>
         ))}
+      </div>
+
+      {/* Estimated Search Revenue */}
+      <div
+        data-ocid="admin.analytics.search_revenue.card"
+        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-bold text-gray-800">
+              Estimated Search Revenue
+            </h2>
+            <p className="text-xs text-gray-400">
+              Based on search activity (demo)
+            </p>
+            <p className="text-3xl font-bold mt-2" style={{ color: BLUE }}>
+              ${estimatedRevenue}
+            </p>
+            <p className="text-sm text-gray-500 mt-1">
+              Total Searches: {searchCount}
+            </p>
+          </div>
+          <span
+            className="text-xs font-bold px-2 py-1 rounded-md"
+            style={{ background: "#EBF3FD", color: BLUE }}
+          >
+            DEMO
+          </span>
+        </div>
       </div>
 
       {/* Visitors Over Time */}
