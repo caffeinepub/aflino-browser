@@ -2,7 +2,6 @@ import { Camera, Mic, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { adminConfig } from "../adminConfig";
 import { useTranslation } from "../i18n/useTranslation";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
 import { SearchResultsPage } from "./SearchResultsPage";
@@ -67,7 +66,13 @@ const GoogleIcon = () => (
 
 interface CarouselRowProps {
   label: string;
-  items: { id: string; name: string; icon: string; url: string }[];
+  items: {
+    id: string;
+    name: string;
+    icon: string;
+    url: string;
+    iconImageUrl?: string;
+  }[];
   onNavigate: (url: string) => void;
   gradientFrom: string;
   gradientTo: string;
@@ -94,13 +99,23 @@ function CarouselRow({
             className="flex flex-col items-center gap-1.5 flex-shrink-0 group"
           >
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-sm group-active:scale-95 transition-transform duration-150"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-sm group-active:scale-95 transition-transform duration-150 overflow-hidden"
               style={{
-                background: `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})`,
+                background: item.iconImageUrl
+                  ? undefined
+                  : `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})`,
                 border: "1px solid #e5e7eb",
               }}
             >
-              {item.icon}
+              {item.iconImageUrl ? (
+                <img
+                  src={item.iconImageUrl}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                item.icon
+              )}
             </div>
             <span className="text-xs text-gray-600 font-medium w-14 text-center leading-tight">
               {item.name}
@@ -302,6 +317,12 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
 
   const aflinoApps = useShortcutsStore((s) => s.aflinoApps);
   const globalBrands = useShortcutsStore((s) => s.globalBrands);
+  const social = useShortcutsStore((s) => s.social);
+  const productivity = useShortcutsStore((s) => s.productivity);
+  const categoryVisibility = useShortcutsStore((s) => s.categoryVisibility);
+  const categoryTitles = useShortcutsStore((s) => s.categoryTitles);
+  const homeLogoUrl = useShortcutsStore((s) => s.homeLogoUrl);
+  const headerBrandText = useShortcutsStore((s) => s.headerBrandText);
   const voiceCameraEnabled = useShortcutsStore((s) => s.voiceCameraEnabled);
   const searchEngine = useShortcutsStore((s) => s.searchEngine);
   const googleSearchApiKey = useShortcutsStore((s) => s.googleSearchApiKey);
@@ -458,12 +479,7 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
   };
 
   const handleCapture = (dataUrl: string) => {
-    // Upload via a data URL is not directly possible with Google Lens,
-    // so we encode the data URL and attempt to open Lens.
-    // Since Google Lens requires a hosted URL, we show a helpful toast
-    // and open the Google Images upload page as the best available bridge.
     try {
-      // Try to open Google Lens image search
       const lensUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(dataUrl)}`;
       onNavigate(lensUrl);
     } catch {
@@ -471,6 +487,38 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
       onNavigate("https://lens.google.com/");
     }
   };
+
+  const carouselRows: {
+    key: keyof typeof categoryVisibility;
+    items: typeof aflinoApps;
+    gradientFrom: string;
+    gradientTo: string;
+  }[] = [
+    {
+      key: "aflinoApps",
+      items: aflinoApps,
+      gradientFrom: "#eff6ff",
+      gradientTo: "#e8f0fe",
+    },
+    {
+      key: "globalBrands",
+      items: globalBrands,
+      gradientFrom: "#f0f4ff",
+      gradientTo: "#e8f0fe",
+    },
+    {
+      key: "social",
+      items: social,
+      gradientFrom: "#f5f8ff",
+      gradientTo: "#eff6ff",
+    },
+    {
+      key: "productivity",
+      items: productivity,
+      gradientFrom: "#eff6ff",
+      gradientTo: "#f0f7ff",
+    },
+  ];
 
   return (
     <div data-ocid="dashboard.page" className="h-full overflow-y-auto bg-white">
@@ -493,8 +541,26 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="flex flex-col items-center px-4 pt-3 pb-24 gap-3"
+        className="flex flex-col items-center px-4 pt-3 pb-6 gap-3"
       >
+        {/* Home Logo / Brand Text (admin-configurable) */}
+        {(homeLogoUrl || headerBrandText) && (
+          <div className="w-full flex items-center gap-2 mb-1">
+            {homeLogoUrl && (
+              <img
+                src={homeLogoUrl}
+                alt="Aflino"
+                className="h-8 w-8 rounded-lg object-cover"
+              />
+            )}
+            {headerBrandText && (
+              <span className="text-lg font-bold" style={{ color: "#1A73E8" }}>
+                {headerBrandText}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="w-full max-w-md flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2.5 shadow-sm focus-within:border-blue-400 focus-within:shadow-blue-100 focus-within:shadow-md transition-all duration-200">
           <GoogleIcon />
@@ -536,39 +602,21 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
           )}
         </div>
 
-        {/* Carousel Rows */}
+        {/* Carousel Rows — driven by store visibility & titles */}
         <div className="w-full flex flex-col gap-3 mt-2">
-          <CarouselRow
-            label={t.aflinoApps}
-            items={aflinoApps}
-            onNavigate={onNavigate}
-            gradientFrom="#eff6ff"
-            gradientTo="#e8f0fe"
-          />
-          <CarouselRow
-            label={t.globalBrands}
-            items={globalBrands}
-            onNavigate={onNavigate}
-            gradientFrom="#f0f4ff"
-            gradientTo="#e8f0fe"
-          />
-          <CarouselRow
-            label={t.social}
-            items={adminConfig.socialApps.map((a) => ({ ...a, name: a.label }))}
-            onNavigate={onNavigate}
-            gradientFrom="#f5f8ff"
-            gradientTo="#eff6ff"
-          />
-          <CarouselRow
-            label={t.productivity}
-            items={adminConfig.productivityApps.map((a) => ({
-              ...a,
-              name: a.label,
-            }))}
-            onNavigate={onNavigate}
-            gradientFrom="#eff6ff"
-            gradientTo="#f0f7ff"
-          />
+          {carouselRows.map(
+            ({ key, items, gradientFrom, gradientTo }) =>
+              categoryVisibility[key] && (
+                <CarouselRow
+                  key={key}
+                  label={categoryTitles[key]}
+                  items={items}
+                  onNavigate={onNavigate}
+                  gradientFrom={gradientFrom}
+                  gradientTo={gradientTo}
+                />
+              ),
+          )}
         </div>
 
         {/* Jump Back In */}

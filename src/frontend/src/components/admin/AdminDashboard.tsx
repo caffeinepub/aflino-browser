@@ -73,15 +73,25 @@ function Toggle({
 }
 
 function AppearanceSection() {
-  const { splashLogoUrl, splashBgColor, splashAnimation, setSplashConfig } =
-    useShortcutsStore();
+  const {
+    splashLogoUrl,
+    splashBgColor,
+    splashAnimation,
+    setSplashConfig,
+    homeLogoUrl,
+    headerBrandText,
+    setHomeAppearance,
+  } = useShortcutsStore();
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<"splash" | "home">("splash");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const homeLogoInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogoFileChange = (file: File) => {
+  const handleLogoFileChange = (file: File, target: "splash" | "home") => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const src = e.target?.result as string;
+      setCropTarget(target);
       setCropSrc(src);
     };
     reader.readAsDataURL(file);
@@ -94,6 +104,92 @@ function AppearanceSection() {
         <p className="text-sm text-gray-500">
           Manage brand colors, splash screen, and visual identity.
         </p>
+      </div>
+
+      {/* Home Page Logo card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-base font-semibold text-gray-800 mb-1">
+          Home Page Logo
+        </h3>
+        <p className="text-sm text-gray-400 mb-5">
+          Upload a custom logo for the browser home page header.
+        </p>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700">Logo Image</span>
+          <div className="flex items-center gap-3">
+            {homeLogoUrl ? (
+              <img
+                src={homeLogoUrl}
+                alt="Home logo"
+                className="w-14 h-14 rounded-xl object-cover border border-gray-100 shadow-sm"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+                <span className="text-xl font-bold text-gray-400">A</span>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={homeLogoInputRef}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleLogoFileChange(file, "home");
+                e.target.value = "";
+              }}
+            />
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                data-ocid="appearance.home_logo.upload_button"
+                onClick={() => homeLogoInputRef.current?.click()}
+                className="px-4 py-2 rounded-xl text-sm font-semibold border border-blue-500 text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+              >
+                Upload Logo
+              </button>
+              {homeLogoUrl && (
+                <button
+                  type="button"
+                  data-ocid="appearance.home_logo.delete_button"
+                  onClick={() => setHomeAppearance({ homeLogoUrl: "" })}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 text-gray-500 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Header Brand Text card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-base font-semibold text-gray-800 mb-1">
+          Header Brand Text
+        </h3>
+        <p className="text-sm text-gray-400 mb-5">
+          Change the brand name shown in the browser home page header.
+        </p>
+        <div className="flex flex-col gap-3">
+          <input
+            type="text"
+            data-ocid="appearance.brand_text.input"
+            value={headerBrandText}
+            onChange={(e) =>
+              setHomeAppearance({
+                headerBrandText: e.target.value.slice(0, 20),
+              })
+            }
+            placeholder="Aflino"
+            maxLength={20}
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 font-medium focus:outline-none focus:border-blue-400 bg-gray-50"
+          />
+          <p className="text-xs text-gray-400">
+            {headerBrandText.length}/20 characters — shown next to the logo on
+            the home page.
+          </p>
+        </div>
       </div>
 
       {/* Brand Color card */}
@@ -156,7 +252,7 @@ function AppearanceSection() {
                 ref={fileInputRef}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleLogoFileChange(file);
+                  if (file) handleLogoFileChange(file, "splash");
                   e.target.value = "";
                 }}
               />
@@ -238,7 +334,11 @@ function AppearanceSection() {
           imageSrc={cropSrc}
           onClose={() => setCropSrc(null)}
           onCropComplete={(dataUrl) => {
-            setSplashConfig({ splashLogoUrl: dataUrl });
+            if (cropTarget === "home") {
+              setHomeAppearance({ homeLogoUrl: dataUrl });
+            } else {
+              setSplashConfig({ splashLogoUrl: dataUrl });
+            }
             setCropSrc(null);
           }}
         />

@@ -13,9 +13,13 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { type Shortcut, useShortcutsStore } from "../../useShortcutsStore";
+import {
+  type Shortcut,
+  type ShortcutCategory,
+  useShortcutsStore,
+} from "../../useShortcutsStore";
 import { ShortcutFormModal } from "./ShortcutFormModal";
 
 interface SortableItemProps {
@@ -124,18 +128,29 @@ function SortableItem({
 }
 
 interface SectionProps {
-  title: string;
-  category: "aflinoApps" | "globalBrands";
+  category: ShortcutCategory;
   items: Shortcut[];
 }
 
-function ShortcutSection({ title, category, items }: SectionProps) {
-  const { addShortcut, updateShortcut, deleteShortcut, reorderShortcuts } =
-    useShortcutsStore();
+function ShortcutSection({ category, items }: SectionProps) {
+  const {
+    addShortcut,
+    updateShortcut,
+    deleteShortcut,
+    reorderShortcuts,
+    categoryTitles,
+    setCategoryTitle,
+    categoryVisibility,
+    setCategoryVisibility,
+  } = useShortcutsStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Shortcut | undefined>();
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   const sensors = useSensors(useSensor(PointerSensor));
+  const title = categoryTitles[category];
+  const visible = categoryVisibility[category];
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -167,29 +182,96 @@ function ShortcutSection({ title, category, items }: SectionProps) {
     }
   };
 
+  const startTitleEdit = () => {
+    setTitleDraft(title);
+    setEditingTitle(true);
+  };
+
+  const commitTitleEdit = () => {
+    const trimmed = titleDraft.trim();
+    if (trimmed) setCategoryTitle(category, trimmed);
+    setEditingTitle(false);
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       {/* Section header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-bold text-gray-800">{title}</h2>
-          <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Inline title edit */}
+          {editingTitle ? (
+            <input
+              type="text"
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={commitTitleEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitTitleEdit();
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+              maxLength={40}
+              className="text-base font-bold text-gray-800 bg-transparent border-b-2 border-blue-500 outline-none min-w-0 flex-1"
+              data-ocid={`admin.${category}.input`}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startTitleEdit}
+              className="flex items-center gap-1.5 group hover:text-blue-600 transition-colors"
+              title="Click to edit section title"
+            >
+              <h2 className="text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                {title}
+              </h2>
+              <Pencil
+                size={13}
+                className="text-gray-400 group-hover:text-blue-500 transition-colors flex-shrink-0"
+              />
+            </button>
+          )}
+          <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
             {items.length}
           </span>
         </div>
-        <button
-          type="button"
-          data-ocid={`admin.${category}.open_modal_button`}
-          onClick={openAdd}
-          className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-lg px-3 py-1.5 transition-colors"
-        >
-          <Plus size={15} />
-          Add Shortcut
-        </button>
+
+        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+          {/* Visibility toggle */}
+          <button
+            type="button"
+            data-ocid={`admin.${category}.toggle`}
+            onClick={() => setCategoryVisibility(category, !visible)}
+            title={visible ? "Hide on home page" : "Show on home page"}
+            className={[
+              "flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all",
+              visible
+                ? "border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                : "border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100",
+            ].join(" ")}
+          >
+            {visible ? <Eye size={13} /> : <EyeOff size={13} />}
+            {visible ? "Visible" : "Hidden"}
+          </button>
+
+          <button
+            type="button"
+            data-ocid={`admin.${category}.open_modal_button`}
+            onClick={openAdd}
+            className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            <Plus size={15} />
+            Add
+          </button>
+        </div>
       </div>
 
       {/* DnD List */}
       <div className="p-4">
+        {!visible && (
+          <div className="mb-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-400 flex items-center gap-2">
+            <EyeOff size={12} />
+            This section is hidden on the home page.
+          </div>
+        )}
         {items.length === 0 ? (
           <div
             data-ocid={`admin.${category}.empty_state`}
@@ -234,9 +316,25 @@ function ShortcutSection({ title, category, items }: SectionProps) {
   );
 }
 
+const CATEGORIES: { key: ShortcutCategory }[] = [
+  { key: "aflinoApps" },
+  { key: "globalBrands" },
+  { key: "social" },
+  { key: "productivity" },
+];
+
 export function ShortcutsManager() {
   const aflinoApps = useShortcutsStore((s) => s.aflinoApps);
   const globalBrands = useShortcutsStore((s) => s.globalBrands);
+  const social = useShortcutsStore((s) => s.social);
+  const productivity = useShortcutsStore((s) => s.productivity);
+
+  const itemsMap: Record<ShortcutCategory, Shortcut[]> = {
+    aflinoApps,
+    globalBrands,
+    social,
+    productivity,
+  };
 
   return (
     <div data-ocid="admin.shortcuts.panel" className="flex flex-col gap-6">
@@ -244,18 +342,12 @@ export function ShortcutsManager() {
         <h1 className="text-xl font-bold text-gray-900">Shortcuts Manager</h1>
         <p className="text-sm text-gray-500 mt-1">
           Manage and reorder carousel shortcuts shown on the Aflino home page.
+          Toggle visibility or click a section title to rename it.
         </p>
       </div>
-      <ShortcutSection
-        title="Line 1 — Aflino Apps"
-        category="aflinoApps"
-        items={aflinoApps}
-      />
-      <ShortcutSection
-        title="Line 2 — Global Brands"
-        category="globalBrands"
-        items={globalBrands}
-      />
+      {CATEGORIES.map(({ key }) => (
+        <ShortcutSection key={key} category={key} items={itemsMap[key]} />
+      ))}
     </div>
   );
 }

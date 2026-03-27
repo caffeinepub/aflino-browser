@@ -11,6 +11,12 @@ export type Shortcut = {
   isSponsored?: boolean;
 };
 
+export type ShortcutCategory =
+  | "aflinoApps"
+  | "globalBrands"
+  | "social"
+  | "productivity";
+
 export type SearchEngine =
   | "google"
   | "bing"
@@ -46,6 +52,22 @@ export interface MultiEngineApiConfig {
 interface ShortcutsState extends MultiEngineApiConfig {
   aflinoApps: Shortcut[];
   globalBrands: Shortcut[];
+  social: Shortcut[];
+  productivity: Shortcut[];
+  categoryVisibility: {
+    aflinoApps: boolean;
+    globalBrands: boolean;
+    social: boolean;
+    productivity: boolean;
+  };
+  categoryTitles: {
+    aflinoApps: string;
+    globalBrands: string;
+    social: string;
+    productivity: string;
+  };
+  homeLogoUrl: string;
+  headerBrandText: string;
   splashLogoUrl: string;
   splashBgColor: string;
   splashAnimation: "fade" | "scale" | "slide";
@@ -56,19 +78,22 @@ interface ShortcutsState extends MultiEngineApiConfig {
   // Legacy field kept for backwards compat with existing executeSearch logic
   partnerTrackingId: string;
   addShortcut: (
-    category: "aflinoApps" | "globalBrands",
+    category: ShortcutCategory,
     shortcut: Omit<Shortcut, "id">,
   ) => void;
   updateShortcut: (
-    category: "aflinoApps" | "globalBrands",
+    category: ShortcutCategory,
     id: string,
     updates: Partial<Omit<Shortcut, "id">>,
   ) => void;
-  deleteShortcut: (category: "aflinoApps" | "globalBrands", id: string) => void;
-  reorderShortcuts: (
-    category: "aflinoApps" | "globalBrands",
-    orderedIds: string[],
-  ) => void;
+  deleteShortcut: (category: ShortcutCategory, id: string) => void;
+  reorderShortcuts: (category: ShortcutCategory, orderedIds: string[]) => void;
+  setCategoryVisibility: (category: ShortcutCategory, enabled: boolean) => void;
+  setCategoryTitle: (category: ShortcutCategory, title: string) => void;
+  setHomeAppearance: (config: {
+    homeLogoUrl?: string;
+    headerBrandText?: string;
+  }) => void;
   setSplashConfig: (
     config: Partial<{
       splashLogoUrl: string;
@@ -107,6 +132,32 @@ export const useShortcutsStore = create<ShortcutsState>()(
         url: a.url,
         icon: a.icon,
       })),
+      social: adminConfig.socialApps.map((a) => ({
+        id: a.id,
+        name: a.label,
+        url: a.url,
+        icon: a.icon,
+      })),
+      productivity: adminConfig.productivityApps.map((a) => ({
+        id: a.id,
+        name: a.label,
+        url: a.url,
+        icon: a.icon,
+      })),
+      categoryVisibility: {
+        aflinoApps: true,
+        globalBrands: true,
+        social: true,
+        productivity: true,
+      },
+      categoryTitles: {
+        aflinoApps: "Aflino Apps",
+        globalBrands: "Global Brands",
+        social: "Social",
+        productivity: "Productivity",
+      },
+      homeLogoUrl: "",
+      headerBrandText: "Aflino",
       splashLogoUrl: "",
       splashBgColor: "#1A73E8",
       splashAnimation: "scale",
@@ -134,27 +185,56 @@ export const useShortcutsStore = create<ShortcutsState>()(
       addShortcut: (category, shortcut) =>
         set((state) => ({
           [category]: [
-            ...state[category],
+            ...(state[category] as Shortcut[]),
             { ...shortcut, id: String(Date.now()) },
           ],
         })),
       updateShortcut: (category, id, updates) =>
         set((state) => ({
-          [category]: state[category].map((s) =>
+          [category]: (state[category] as Shortcut[]).map((s) =>
             s.id === id ? { ...s, ...updates } : s,
           ),
         })),
       deleteShortcut: (category, id) =>
         set((state) => ({
-          [category]: state[category].filter((s) => s.id !== id),
+          [category]: (state[category] as Shortcut[]).filter(
+            (s) => s.id !== id,
+          ),
         })),
       reorderShortcuts: (category, orderedIds) =>
         set((state) => {
-          const map = new Map(state[category].map((s) => [s.id, s]));
+          const map = new Map(
+            (state[category] as Shortcut[]).map((s) => [s.id, s]),
+          );
           return {
             [category]: orderedIds.map((id) => map.get(id)!).filter(Boolean),
           };
         }),
+      setCategoryVisibility: (category, enabled) =>
+        set((state) => ({
+          categoryVisibility: {
+            ...state.categoryVisibility,
+            [category]: enabled,
+          },
+        })),
+      setCategoryTitle: (category, title) =>
+        set((state) => ({
+          categoryTitles: {
+            ...state.categoryTitles,
+            [category]: title,
+          },
+        })),
+      setHomeAppearance: (config) =>
+        set((state) => ({
+          ...(config.homeLogoUrl !== undefined && {
+            homeLogoUrl: config.homeLogoUrl,
+          }),
+          ...(config.headerBrandText !== undefined && {
+            headerBrandText: config.headerBrandText,
+          }),
+          // keep the rest of state untouched
+          categoryVisibility: state.categoryVisibility,
+        })),
       setSplashConfig: (config) => set((state) => ({ ...state, ...config })),
       setVoiceCameraEnabled: (enabled) => set({ voiceCameraEnabled: enabled }),
       setSearchEngine: (engine) => set({ searchEngine: engine }),
