@@ -3,12 +3,15 @@ import {
   ChevronRight,
   Clock,
   Download,
+  Search,
   Shield,
+  Smartphone,
   Trash2,
   User,
+  X,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type HistoryEntry, useShortcutsStore } from "../useShortcutsStore";
 
 interface ProfilePageProps {
@@ -37,21 +40,76 @@ function groupHistoryByDate(entries: HistoryEntry[]) {
   return { today, yesterday, older };
 }
 
+// --- PWA Install Hook ---
+function usePwaInstall() {
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Check if already installed (standalone mode)
+    if (window.matchMedia("(display-mode: standalone)").matches) {
+      setIsInstalled(true);
+      return;
+    }
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    });
+
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const triggerInstall = async () => {
+    if (!installPrompt) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (installPrompt as any).prompt();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { outcome } = await (installPrompt as any).userChoice;
+    if (outcome === "accepted") {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    }
+  };
+
+  return {
+    canInstall: !!installPrompt && !isInstalled,
+    isInstalled,
+    triggerInstall,
+  };
+}
+
 export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "history">(
     "overview",
   );
+  const [historyQuery, setHistoryQuery] = useState("");
+  const historySearchRef = useRef<HTMLInputElement>(null);
   const { history, clearHistory, removeHistory, bookmarks } =
     useShortcutsStore();
+  const { canInstall, isInstalled, triggerInstall } = usePwaInstall();
+
+  // Focus search when switching to history tab
+  useEffect(() => {
+    if (activeTab === "history" && historyQuery === "") {
+      // Small delay so the tab transition is done
+      const t = setTimeout(() => historySearchRef.current?.focus(), 200);
+      return () => clearTimeout(t);
+    }
+  }, [activeTab, historyQuery]);
 
   const quickLinks = [
     {
       icon: Download,
       label: "Downloads",
       description: "Manage your downloaded files",
-      action: () => {
-        // no-op placeholder
-      },
+      action: () => {},
       isBlue: false,
     },
     {
@@ -94,7 +152,6 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
         data-ocid={`profile.history.item.${idx + 1}`}
         className="relative flex items-center gap-3 rounded-xl hover:bg-gray-50 active:bg-blue-50 transition-colors group"
       >
-        {/* Clickable row area */}
         <button
           type="button"
           className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2.5 text-left"
@@ -121,7 +178,6 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
             <p className="text-xs text-gray-400 truncate">{timestamp}</p>
           </div>
         </button>
-        {/* Delete button */}
         <button
           type="button"
           data-ocid={`profile.history.delete_button.${idx + 1}`}
@@ -135,7 +191,16 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
     );
   }
 
-  const { today, yesterday, older } = groupHistoryByDate(history);
+  // Filtered history
+  const q = historyQuery.trim().toLowerCase();
+  const filteredHistory = q
+    ? history.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) || e.url.toLowerCase().includes(q),
+      )
+    : history;
+
+  const { today, yesterday, older } = groupHistoryByDate(filteredHistory);
 
   function renderGroup(
     label: string,
@@ -258,6 +323,53 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
             </motion.div>
           </div>
 
+          {/* Install PWA Card */}
+          {canInstall && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22, duration: 0.3 }}
+              className="mx-4 mb-4 rounded-2xl overflow-hidden border border-blue-100"
+              style={{
+                background: "linear-gradient(135deg, #1A73E8 0%, #0d5cc7 100%)",
+              }}
+            >
+              <div className="flex items-center gap-4 px-5 py-4">
+                <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <Smartphone size={20} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">
+                    Install Aflino App
+                  </p>
+                  <p className="text-xs text-blue-100 mt-0.5 leading-tight">
+                    Add to home screen for a native app experience
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-ocid="profile.install_pwa_button"
+                  onClick={triggerInstall}
+                  className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-white transition-all active:scale-95"
+                  style={{ color: "#1A73E8" }}
+                >
+                  Install
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {isInstalled && (
+            <div className="mx-4 mb-4 rounded-2xl bg-green-50 border border-green-100 flex items-center gap-3 px-5 py-3">
+              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                <Smartphone size={15} className="text-green-600" />
+              </div>
+              <p className="text-sm text-green-700 font-medium">
+                Aflino is installed on your device
+              </p>
+            </div>
+          )}
+
           {/* Quick Links */}
           <div className="px-4 pb-8">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
@@ -313,40 +425,96 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
         </div>
       ) : (
         /* History Tab */
-        <div
-          className="flex-1 overflow-y-auto px-4 py-4"
-          style={{ scrollBehavior: "smooth" }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Recent
-            </p>
-            {history.length > 0 && (
-              <button
-                type="button"
-                data-ocid="profile.history.delete_button"
-                onClick={clearHistory}
-                className="text-xs font-medium px-3 py-1 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Sticky search bar */}
+          <div className="px-4 pt-3 pb-2 bg-white border-b border-gray-50">
+            <div className="relative flex items-center">
+              <Search
+                size={15}
+                className="absolute left-3 text-gray-400 pointer-events-none"
+              />
+              <input
+                ref={historySearchRef}
+                type="search"
+                value={historyQuery}
+                onChange={(e) => setHistoryQuery(e.target.value)}
+                placeholder="Search history..."
+                data-ocid="profile.history.search_input"
+                className="w-full pl-9 pr-9 py-2 text-sm bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-blue-300 focus:bg-white transition-all placeholder-gray-400"
+              />
+              {historyQuery && (
+                <button
+                  type="button"
+                  onClick={() => setHistoryQuery("")}
+                  className="absolute right-2.5 w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 transition-colors"
+                >
+                  <X size={11} className="text-gray-500" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* History list */}
+          <div
+            className="flex-1 overflow-y-auto px-4 py-3"
+            style={{ scrollBehavior: "smooth" }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {q ? `Results for "${historyQuery}"` : "Recent"}
+              </p>
+              {history.length > 0 && !q && (
+                <button
+                  type="button"
+                  data-ocid="profile.history.clear_all_button"
+                  onClick={clearHistory}
+                  className="text-xs font-medium px-3 py-1 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {history.length === 0 ? (
+              <div
+                data-ocid="profile.history.empty_state"
+                className="flex flex-col items-center justify-center py-16 text-gray-400"
               >
-                Clear All
-              </button>
+                <Clock size={36} strokeWidth={1.2} className="mb-3" />
+                <p className="text-sm">No history yet</p>
+              </div>
+            ) : filteredHistory.length === 0 ? (
+              <div
+                data-ocid="profile.history.no_match_state"
+                className="flex flex-col items-center justify-center py-16 text-gray-400"
+              >
+                <Search size={36} strokeWidth={1.2} className="mb-3" />
+                <p className="text-sm font-medium text-gray-500">
+                  No matching history found.
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Try a different search term.
+                </p>
+              </div>
+            ) : (
+              <div>
+                {q ? (
+                  // When searching, show all results flat (no date grouping)
+                  <div className="space-y-0.5">
+                    {filteredHistory.map((entry, idx) =>
+                      renderHistoryRow(entry, idx, true),
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {renderGroup("Today", today, true)}
+                    {renderGroup("Yesterday", yesterday, true)}
+                    {renderGroup("Older", older, false)}
+                  </>
+                )}
+              </div>
             )}
           </div>
-          {history.length === 0 ? (
-            <div
-              data-ocid="profile.history.empty_state"
-              className="flex flex-col items-center justify-center py-16 text-gray-400"
-            >
-              <Clock size={36} strokeWidth={1.2} className="mb-3" />
-              <p className="text-sm">No history yet</p>
-            </div>
-          ) : (
-            <div>
-              {renderGroup("Today", today, true)}
-              {renderGroup("Yesterday", yesterday, true)}
-              {renderGroup("Older", older, false)}
-            </div>
-          )}
         </div>
       )}
     </motion.div>
