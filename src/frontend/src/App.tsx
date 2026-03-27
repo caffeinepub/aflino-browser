@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserFrame } from "./components/BrowserFrame";
 import { Dashboard } from "./components/Dashboard";
 import { FooterNav } from "./components/FooterNav";
@@ -39,7 +39,10 @@ function BrowserApp() {
     favicon: string;
   } | null>(null);
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+  const activePage = activeTab.url === "" ? "home" : "other";
 
   const navigateTo = useCallback(
     (url: string) => {
@@ -141,7 +144,11 @@ function BrowserApp() {
 
       <main className="flex-1 overflow-hidden relative">
         {activeTab.url === "" ? (
-          <Dashboard onNavigate={navigateTo} lastVisited={lastVisited} />
+          <Dashboard
+            onNavigate={navigateTo}
+            lastVisited={lastVisited}
+            searchInputRef={searchInputRef}
+          />
         ) : (
           <BrowserFrame
             tab={activeTab}
@@ -151,7 +158,14 @@ function BrowserApp() {
         )}
       </main>
 
-      <FooterNav onHome={goHome} onSearch={() => {}} />
+      <FooterNav
+        onHome={goHome}
+        onSearch={() => {
+          goHome();
+          setTimeout(() => searchInputRef.current?.focus(), 100);
+        }}
+        activePage={activePage}
+      />
 
       {showTabSwitcher && (
         <TabSwitcher

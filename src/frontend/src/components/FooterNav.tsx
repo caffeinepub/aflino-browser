@@ -1,42 +1,67 @@
 import { Bookmark, Home, Search, User } from "lucide-react";
+import { toast } from "sonner";
 
 interface FooterNavProps {
   onHome: () => void;
   onSearch: () => void;
+  activePage: "home" | "search" | "other";
 }
 
-export function FooterNav({ onHome, onSearch }: FooterNavProps) {
+export function FooterNav({ onHome, onSearch, activePage }: FooterNavProps) {
   const items = [
-    { icon: Home, label: "Home", action: onHome, id: "home" },
-    { icon: Search, label: "Search", action: onSearch, id: "search" },
-    { icon: Bookmark, label: "Bookmarks", action: () => {}, id: "bookmarks" },
-    { icon: User, label: "Profile", action: () => {}, id: "profile" },
+    { icon: Home, label: "Home", id: "home", action: onHome },
+    { icon: Search, label: "Search", id: "search", action: onSearch },
+    {
+      icon: Bookmark,
+      label: "Bookmarks",
+      id: "bookmarks",
+      action: () =>
+        toast("Coming Soon", {
+          description: "Bookmarks will be available in the next update.",
+        }),
+    },
+    {
+      icon: User,
+      label: "Profile",
+      id: "profile",
+      action: () =>
+        toast("Coming Soon", {
+          description: "Profile will be available in the next update.",
+        }),
+    },
   ];
 
   return (
     <footer
       data-ocid="footer.panel"
-      className="bg-white border-t border-gray-100 flex-shrink-0"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
     >
-      <nav className="flex items-center justify-around px-2 py-2">
-        {items.map(({ icon: Icon, label, action, id }) => (
-          <button
-            type="button"
-            key={id}
-            data-ocid={`footer.${id}_button`}
-            onClick={action}
-            className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl text-gray-400 hover:text-blue-500 transition-colors duration-200 active:scale-95"
-          >
-            <Icon size={22} />
-            <span className="text-[10px] font-medium">{label}</span>
-          </button>
-        ))}
+      <nav className="flex items-center justify-around px-2 py-2 pb-2">
+        {items.map(({ icon: Icon, label, action, id }) => {
+          const isActive = activePage === id;
+          return (
+            <button
+              type="button"
+              key={id}
+              data-ocid={`footer.${id}_button`}
+              onClick={action}
+              className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-colors duration-200 active:scale-95"
+            >
+              <Icon
+                size={22}
+                style={{ color: isActive ? "#1A73E8" : "#9ca3af" }}
+                strokeWidth={isActive ? 2.5 : 1.8}
+              />
+              <span
+                className="text-[10px] font-medium"
+                style={{ color: isActive ? "#1A73E8" : "#9ca3af" }}
+              >
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </nav>
-      <div className="flex items-center justify-center gap-8 py-2 bg-gray-50">
-        <div className="w-5 h-5 rounded-full border-2 border-gray-400" />
-        <div className="w-4 h-4 rounded-sm border-2 border-gray-400" />
-        <div className="w-6 h-0.5 rounded-full bg-gray-400" />
-      </div>
     </footer>
   );
 }

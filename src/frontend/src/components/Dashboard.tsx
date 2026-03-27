@@ -299,9 +299,14 @@ function ListeningOverlay({ onStop }: { onStop: () => void }) {
 interface DashboardProps {
   onNavigate: (url: string) => void;
   lastVisited?: { url: string; title: string; favicon: string } | null;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
+export function Dashboard({
+  onNavigate,
+  lastVisited,
+  searchInputRef,
+}: DashboardProps) {
   const [searchVal, setSearchVal] = useState("");
   const [listening, setListening] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -321,8 +326,6 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
   const productivity = useShortcutsStore((s) => s.productivity);
   const categoryVisibility = useShortcutsStore((s) => s.categoryVisibility);
   const categoryTitles = useShortcutsStore((s) => s.categoryTitles);
-  const homeLogoUrl = useShortcutsStore((s) => s.homeLogoUrl);
-  const headerBrandText = useShortcutsStore((s) => s.headerBrandText);
   const voiceCameraEnabled = useShortcutsStore((s) => s.voiceCameraEnabled);
   const searchEngine = useShortcutsStore((s) => s.searchEngine);
   const googleSearchApiKey = useShortcutsStore((s) => s.googleSearchApiKey);
@@ -541,30 +544,13 @@ export function Dashboard({ onNavigate, lastVisited }: DashboardProps) {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="flex flex-col items-center px-4 pt-3 pb-6 gap-3"
+        className="flex flex-col items-center px-4 pt-3 pb-24 gap-3"
       >
-        {/* Home Logo / Brand Text (admin-configurable) */}
-        {(homeLogoUrl || headerBrandText) && (
-          <div className="w-full flex items-center gap-2 mb-1">
-            {homeLogoUrl && (
-              <img
-                src={homeLogoUrl}
-                alt="Aflino"
-                className="h-8 w-8 rounded-lg object-cover"
-              />
-            )}
-            {headerBrandText && (
-              <span className="text-lg font-bold" style={{ color: "#1A73E8" }}>
-                {headerBrandText}
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Search Bar */}
         <div className="w-full max-w-md flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2.5 shadow-sm focus-within:border-blue-400 focus-within:shadow-blue-100 focus-within:shadow-md transition-all duration-200">
           <GoogleIcon />
           <input
+            ref={searchInputRef}
             data-ocid="dashboard.search_input"
             className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder-gray-400 mx-1"
             placeholder={t.searchPlaceholder}
