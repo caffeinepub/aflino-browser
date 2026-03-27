@@ -396,6 +396,8 @@ function SettingsSection() {
     customAffiliateId,
     inAppSearchEnabled,
     setMultiEngineConfig,
+    enableUserProfiles,
+    setEnableUserProfiles,
   } = useShortcutsStore();
   const [activeEngineTab, setActiveEngineTab] = useState<
     "google" | "bing" | "duckduckgo" | "custom"
@@ -453,6 +455,29 @@ function SettingsSection() {
             <Toggle
               value={voiceCameraEnabled}
               onChange={() => setVoiceCameraEnabled(!voiceCameraEnabled)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* User Profiles card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 className="text-base font-semibold text-gray-800 mb-4">
+          User Profiles
+        </h3>
+        <div className="flex flex-col divide-y divide-gray-50">
+          <div className="flex items-center justify-between py-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-gray-700">
+                Enable User Profiles
+              </span>
+              <span className="text-xs text-gray-400">
+                Allow users to access their profile page from the browser.
+              </span>
+            </div>
+            <Toggle
+              value={enableUserProfiles}
+              onChange={() => setEnableUserProfiles(!enableUserProfiles)}
             />
           </div>
         </div>

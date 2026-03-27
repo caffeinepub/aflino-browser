@@ -11,6 +11,13 @@ export type Shortcut = {
   isSponsored?: boolean;
 };
 
+export type Bookmark = {
+  id: string;
+  name: string;
+  url: string;
+  favicon: string;
+};
+
 export type ShortcutCategory =
   | "aflinoApps"
   | "globalBrands"
@@ -77,6 +84,11 @@ interface ShortcutsState extends MultiEngineApiConfig {
   searchCount: number;
   // Legacy field kept for backwards compat with existing executeSearch logic
   partnerTrackingId: string;
+  bookmarks: Bookmark[];
+  enableUserProfiles: boolean;
+  addBookmark: (b: Omit<Bookmark, "id">) => void;
+  removeBookmark: (id: string) => void;
+  setEnableUserProfiles: (v: boolean) => void;
   addShortcut: (
     category: ShortcutCategory,
     shortcut: Omit<Shortcut, "id">,
@@ -181,6 +193,8 @@ export const useShortcutsStore = create<ShortcutsState>()(
       inAppSearchEnabled: false,
       // Legacy
       partnerTrackingId: "",
+      bookmarks: [],
+      enableUserProfiles: true,
 
       addShortcut: (category, shortcut) =>
         set((state) => ({
@@ -258,6 +272,15 @@ export const useShortcutsStore = create<ShortcutsState>()(
             inAppSearchEnabled: config.inAppSearchEnabled,
           }),
         })),
+      addBookmark: (b) =>
+        set((state) => ({
+          bookmarks: [...state.bookmarks, { ...b, id: String(Date.now()) }],
+        })),
+      removeBookmark: (id) =>
+        set((state) => ({
+          bookmarks: state.bookmarks.filter((bm) => bm.id !== id),
+        })),
+      setEnableUserProfiles: (v) => set({ enableUserProfiles: v }),
       incrementSearchCount: () =>
         set((state) => ({ searchCount: state.searchCount + 1 })),
     }),

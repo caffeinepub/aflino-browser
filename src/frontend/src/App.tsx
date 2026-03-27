@@ -1,10 +1,15 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BookmarksSheet } from "./components/BookmarksSheet";
 import { BrowserFrame } from "./components/BrowserFrame";
 import { Dashboard } from "./components/Dashboard";
 import { FooterNav } from "./components/FooterNav";
 import { Header } from "./components/Header";
+import { OmniboxOverlay } from "./components/OmniboxOverlay";
 import { PocketMenu } from "./components/PocketMenu";
+import { ProfilePage } from "./components/ProfilePage";
+import { ProgressBar } from "./components/ProgressBar";
+import { SearchResultsPage } from "./components/SearchResultsPage";
 import { SplashScreen } from "./components/SplashScreen";
 import { TabSwitcher } from "./components/TabSwitcher";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
@@ -15,6 +20,13 @@ export type Tab = {
   url: string;
   title: string;
   blocked: boolean;
+};
+
+type SearchResult = {
+  title: string;
+  link: string;
+  snippet: string;
+  pagemap?: { cse_thumbnail?: Array<{ src: string }> };
 };
 
 let tabCounter = 1;
@@ -28,11 +40,31 @@ function makeTab(url = ""): Tab {
   };
 }
 
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 function BrowserApp() {
   const [tabs, setTabs] = useState<Tab[]>([makeTab()]);
   const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
   const [showTabSwitcher, setShowTabSwitcher] = useState(false);
   const [showPocketMenu, setShowPocketMenu] = useState(false);
+  const [showOmnibox, setShowOmnibox] = useState(false);
+  const [iframeLoading, setIframeLoading] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [searchResultsOverlay, setSearchResultsOverlay] = useState<{
+    query: string;
+    results: SearchResult[];
+    loading: boolean;
+  } | null>(null);
+
+  const { bookmarks, addBookmark, removeBookmark, enableUserProfiles } =
+    useShortcutsStore();
   const [lastVisited, setLastVisited] = useState<{
     url: string;
     title: string;
@@ -44,15 +76,71 @@ function BrowserApp() {
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const activePage = activeTab.url === "" ? "home" : "other";
 
+  const executeInAppSearch = useCallback(
+    async (query: string): Promise<boolean> => {
+      const store = useShortcutsStore.getState();
+      const {
+        googleSearchApiKey,
+        searchEngineCx,
+        inAppSearchEnabled,
+        searchEngine,
+        incrementSearchCount,
+      } = store;
+      incrementSearchCount();
+
+      if (
+        inAppSearchEnabled &&
+        searchEngine === "google" &&
+        googleSearchApiKey &&
+        searchEngineCx
+      ) {
+        setSearchResultsOverlay({ query, results: [], loading: true });
+        try {
+          const res = await fetch(
+            `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${searchEngineCx}&q=${encodeURIComponent(query)}`,
+          );
+          const data = await res.json();
+          setSearchResultsOverlay({
+            query,
+            results: data.items ?? [],
+            loading: false,
+          });
+        } catch {
+          setSearchResultsOverlay({ query, results: [], loading: false });
+        }
+        return true;
+      }
+      return false;
+    },
+    [],
+  );
+
   const navigateTo = useCallback(
     (url: string) => {
+      // Check if this is a plain search query (not a URL)
+      const isSearchQuery = !url.startsWith("http") && !url.includes(".");
+      if (isSearchQuery) {
+        executeInAppSearch(url).then((handled) => {
+          if (handled) return;
+          // Fallback: redirect to selected search engine
+          const searchUrl =
+            SEARCH_ENGINE_URLS[useShortcutsStore.getState().searchEngine] +
+            encodeURIComponent(url);
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.id === activeTabId
+                ? { ...t, url: searchUrl, title: url, blocked: false }
+                : t,
+            ),
+          );
+        });
+        return;
+      }
+
       const normalized =
         url.startsWith("http://") || url.startsWith("https://")
           ? url
-          : url.includes(".")
-            ? `https://${url}`
-            : SEARCH_ENGINE_URLS[useShortcutsStore.getState().searchEngine] +
-              encodeURIComponent(url);
+          : `https://${url}`;
 
       const isRealWebsite =
         !normalized.includes("/search?q=") &&
@@ -84,7 +172,7 @@ function BrowserApp() {
         ),
       );
     },
-    [activeTabId],
+    [activeTabId, executeInAppSearch],
   );
 
   const newTab = useCallback(() => {
@@ -117,12 +205,6 @@ function BrowserApp() {
     setShowTabSwitcher(false);
   }, []);
 
-  const setBlocked = useCallback((id: string, val: boolean) => {
-    setTabs((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, blocked: val } : t)),
-    );
-  }, []);
-
   const goHome = useCallback(() => {
     setTabs((prev) =>
       prev.map((t) =>
@@ -133,6 +215,7 @@ function BrowserApp() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      <ProgressBar loading={iframeLoading} />
       <Header
         activeTab={activeTab}
         tabCount={tabs.length}
@@ -140,6 +223,7 @@ function BrowserApp() {
         onNewTab={newTab}
         onOpenTabSwitcher={() => setShowTabSwitcher(true)}
         onOpenPocketMenu={() => setShowPocketMenu((v) => !v)}
+        onOpenOmnibox={() => setShowOmnibox(true)}
       />
 
       <main className="flex-1 overflow-hidden relative">
@@ -152,19 +236,23 @@ function BrowserApp() {
         ) : (
           <BrowserFrame
             tab={activeTab}
-            onBlocked={() => setBlocked(activeTab.id, true)}
+            onBlocked={() => {
+              window.open(activeTab.url, "_blank");
+              goHome();
+            }}
             onGoBack={goHome}
+            onLoadingChange={setIframeLoading}
           />
         )}
       </main>
 
       <FooterNav
         onHome={goHome}
-        onSearch={() => {
-          goHome();
-          setTimeout(() => searchInputRef.current?.focus(), 100);
-        }}
+        onSearch={() => setShowOmnibox(true)}
+        onBookmarkClick={() => setShowBookmarks(true)}
+        onProfileClick={() => setShowProfile(true)}
         activePage={activePage}
+        enableUserProfiles={enableUserProfiles}
       />
 
       {showTabSwitcher && (
@@ -178,6 +266,19 @@ function BrowserApp() {
         />
       )}
 
+      {searchResultsOverlay !== null && (
+        <SearchResultsPage
+          query={searchResultsOverlay.query}
+          results={searchResultsOverlay.results}
+          loading={searchResultsOverlay.loading}
+          onClose={() => setSearchResultsOverlay(null)}
+          onNavigate={(url) => {
+            setSearchResultsOverlay(null);
+            navigateTo(url);
+          }}
+        />
+      )}
+
       <AnimatePresence>
         {showPocketMenu && (
           <PocketMenu
@@ -187,6 +288,30 @@ function BrowserApp() {
             onRefresh={() => navigateTo(activeTab.url)}
           />
         )}
+        {showOmnibox && (
+          <OmniboxOverlay
+            initialValue={
+              activeTab.url !== "" ? extractDomain(activeTab.url) : ""
+            }
+            onNavigate={(url) => {
+              setShowOmnibox(false);
+              navigateTo(url);
+            }}
+            onClose={() => setShowOmnibox(false)}
+            currentUrl={activeTab.url || undefined}
+            bookmarks={bookmarks}
+            onAddBookmark={addBookmark}
+            onRemoveBookmark={removeBookmark}
+          />
+        )}
+        {showBookmarks && (
+          <BookmarksSheet
+            bookmarks={bookmarks}
+            onClose={() => setShowBookmarks(false)}
+            onRemove={removeBookmark}
+          />
+        )}
+        {showProfile && <ProfilePage onClose={() => setShowProfile(false)} />}
       </AnimatePresence>
     </div>
   );

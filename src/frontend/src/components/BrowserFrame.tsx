@@ -6,19 +6,27 @@ interface BrowserFrameProps {
   tab: Tab;
   onBlocked: () => void;
   onGoBack: () => void;
+  onLoadingChange?: (isLoading: boolean) => void;
 }
 
-export function BrowserFrame({ tab, onBlocked, onGoBack }: BrowserFrameProps) {
+export function BrowserFrame({
+  tab,
+  onBlocked,
+  onGoBack,
+  onLoadingChange,
+}: BrowserFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on URL change
   useEffect(() => {
     setLoading(true);
+    onLoadingChange?.(true);
   }, [tab.url]);
 
   const handleLoad = () => {
     setLoading(false);
+    onLoadingChange?.(false);
     try {
       const _loc = iframeRef.current?.contentWindow?.location?.href;
       void _loc;
@@ -29,14 +37,18 @@ export function BrowserFrame({ tab, onBlocked, onGoBack }: BrowserFrameProps) {
 
   const handleError = () => {
     setLoading(false);
+    onLoadingChange?.(false);
     onBlocked();
   };
 
   useEffect(() => {
     if (!loading) return;
-    const timer = setTimeout(() => setLoading(false), 4000);
+    const timer = setTimeout(() => {
+      setLoading(false);
+      onLoadingChange?.(false);
+    }, 4000);
     return () => clearTimeout(timer);
-  }, [loading]);
+  }, [loading, onLoadingChange]);
 
   if (tab.blocked) {
     return (

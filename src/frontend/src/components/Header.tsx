@@ -13,6 +13,7 @@ interface HeaderProps {
   onNewTab: () => void;
   onOpenTabSwitcher: () => void;
   onOpenPocketMenu: () => void;
+  onOpenOmnibox: () => void;
 }
 
 function extractDomain(url: string): string {
@@ -23,7 +24,7 @@ function extractDomain(url: string): string {
   }
 }
 
-const AFLINO_BLUE = "#3b82f6";
+const AFLINO_BLUE = "#1A73E8";
 
 export function Header({
   activeTab,
@@ -31,6 +32,7 @@ export function Header({
   onNewTab,
   onOpenTabSwitcher,
   onOpenPocketMenu,
+  onOpenOmnibox,
 }: HeaderProps) {
   const [showLangModal, setShowLangModal] = useState(false);
   const { selectedCode, landmarkIcons } = useLanguageStore();
@@ -110,12 +112,15 @@ export function Header({
                 exit={{ opacity: 0, y: 6 }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
-                {/* Blue-bordered pill address bar */}
-                <div
-                  className="flex-1 flex items-center gap-2.5 bg-white rounded-full px-4 py-2 min-w-0"
+                {/* Tappable pill address bar */}
+                <button
+                  type="button"
+                  data-ocid="header.address_bar.button"
+                  onClick={onOpenOmnibox}
+                  className="flex-1 flex items-center gap-2.5 bg-white rounded-full px-4 py-2 min-w-0 text-left cursor-pointer hover:shadow-md transition-shadow"
                   style={{
                     border: `1.5px solid ${AFLINO_BLUE}`,
-                    boxShadow: "0 0 0 3px rgba(59,130,246,0.08)",
+                    boxShadow: "0 0 0 3px rgba(26,115,232,0.08)",
                   }}
                 >
                   <ShieldCheck
@@ -132,7 +137,7 @@ export function Header({
                   >
                     {extractDomain(activeTab.url)}
                   </span>
-                </div>
+                </button>
 
                 {/* Right action cluster */}
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -165,7 +170,7 @@ export function Header({
                     className="text-xl font-black tracking-tight select-none"
                     style={{
                       background:
-                        "linear-gradient(90deg, #3b82f6 0%, #ec4899 100%)",
+                        "linear-gradient(90deg, #1A73E8 0%, #0d47a1 100%)",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
@@ -177,13 +182,12 @@ export function Header({
 
                 {/* Right cluster */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* Circular profile avatar */}
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 cursor-pointer ring-2 ring-white"
                     style={{
                       background:
-                        "linear-gradient(135deg, #3b82f6 0%, #ec4899 100%)",
-                      boxShadow: "0 2px 8px rgba(59,130,246,0.35)",
+                        "linear-gradient(135deg, #1A73E8 0%, #0d47a1 100%)",
+                      boxShadow: "0 2px 8px rgba(26,115,232,0.35)",
                     }}
                     title="Profile"
                   >

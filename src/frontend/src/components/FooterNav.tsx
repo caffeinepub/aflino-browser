@@ -1,13 +1,22 @@
 import { Bookmark, Home, Search, User } from "lucide-react";
-import { toast } from "sonner";
 
 interface FooterNavProps {
   onHome: () => void;
   onSearch: () => void;
-  activePage: "home" | "search" | "other";
+  onBookmarkClick: () => void;
+  onProfileClick: () => void;
+  activePage: "home" | "search" | "bookmarks" | "profile" | "other";
+  enableUserProfiles?: boolean;
 }
 
-export function FooterNav({ onHome, onSearch, activePage }: FooterNavProps) {
+export function FooterNav({
+  onHome,
+  onSearch,
+  onBookmarkClick,
+  onProfileClick,
+  activePage,
+  enableUserProfiles = true,
+}: FooterNavProps) {
   const items = [
     { icon: Home, label: "Home", id: "home", action: onHome },
     { icon: Search, label: "Search", id: "search", action: onSearch },
@@ -15,20 +24,18 @@ export function FooterNav({ onHome, onSearch, activePage }: FooterNavProps) {
       icon: Bookmark,
       label: "Bookmarks",
       id: "bookmarks",
-      action: () =>
-        toast("Coming Soon", {
-          description: "Bookmarks will be available in the next update.",
-        }),
+      action: onBookmarkClick,
     },
-    {
-      icon: User,
-      label: "Profile",
-      id: "profile",
-      action: () =>
-        toast("Coming Soon", {
-          description: "Profile will be available in the next update.",
-        }),
-    },
+    ...(enableUserProfiles
+      ? [
+          {
+            icon: User,
+            label: "Profile",
+            id: "profile",
+            action: onProfileClick,
+          },
+        ]
+      : []),
   ];
 
   return (
