@@ -342,7 +342,15 @@ function BrowserApp() {
             onRemove={removeBookmark}
           />
         )}
-        {showProfile && <ProfilePage onClose={() => setShowProfile(false)} />}
+        {showProfile && (
+          <ProfilePage
+            onClose={() => setShowProfile(false)}
+            onNavigate={(url) => {
+              setShowProfile(false);
+              navigateTo(url);
+            }}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

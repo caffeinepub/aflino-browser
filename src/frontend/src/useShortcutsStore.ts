@@ -98,6 +98,7 @@ interface ShortcutsState extends MultiEngineApiConfig {
   removeBookmark: (id: string) => void;
   addHistory: (entry: Omit<HistoryEntry, "id">) => void;
   clearHistory: () => void;
+  removeHistory: (id: string) => void;
   setEnableUserProfiles: (v: boolean) => void;
   addShortcut: (
     category: ShortcutCategory,
@@ -299,6 +300,10 @@ export const useShortcutsStore = create<ShortcutsState>()(
           ].slice(0, 100),
         })),
       clearHistory: () => set({ history: [] }),
+      removeHistory: (id) =>
+        set((state) => ({
+          history: state.history.filter((h) => h.id !== id),
+        })),
       setEnableUserProfiles: (v) => set({ enableUserProfiles: v }),
       incrementSearchCount: () =>
         set((state) => ({ searchCount: state.searchCount + 1 })),

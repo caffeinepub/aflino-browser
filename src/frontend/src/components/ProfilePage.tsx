@@ -4,21 +4,45 @@ import {
   Clock,
   Download,
   Shield,
+  Trash2,
   User,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { useShortcutsStore } from "../useShortcutsStore";
+import { type HistoryEntry, useShortcutsStore } from "../useShortcutsStore";
 
 interface ProfilePageProps {
   onClose: () => void;
+  onNavigate: (url: string) => void;
 }
 
-export function ProfilePage({ onClose }: ProfilePageProps) {
+function groupHistoryByDate(entries: HistoryEntry[]) {
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const yesterdayStart = todayStart - 86400000;
+
+  const today: HistoryEntry[] = [];
+  const yesterday: HistoryEntry[] = [];
+  const older: HistoryEntry[] = [];
+
+  for (const entry of entries) {
+    if (entry.timestamp >= todayStart) today.push(entry);
+    else if (entry.timestamp >= yesterdayStart) yesterday.push(entry);
+    else older.push(entry);
+  }
+  return { today, yesterday, older };
+}
+
+export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "history">(
     "overview",
   );
-  const { history, clearHistory, bookmarks } = useShortcutsStore();
+  const { history, clearHistory, removeHistory, bookmarks } =
+    useShortcutsStore();
 
   const quickLinks = [
     {
@@ -40,6 +64,96 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
       isBlue: true,
     },
   ];
+
+  function handleHistoryRowClick(entry: HistoryEntry) {
+    const url = entry.url.startsWith("search:")
+      ? entry.url.replace("search:", "")
+      : entry.url;
+    onNavigate(url);
+    onClose();
+  }
+
+  function renderHistoryRow(
+    entry: HistoryEntry,
+    idx: number,
+    isToday: boolean,
+  ) {
+    const domain = entry.url.startsWith("search:")
+      ? ""
+      : entry.url.replace(/^https?:\/\//, "").split("/")[0];
+    const timestamp = isToday
+      ? new Date(entry.timestamp).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : new Date(entry.timestamp).toLocaleDateString();
+
+    return (
+      <div
+        key={entry.id}
+        data-ocid={`profile.history.item.${idx + 1}`}
+        className="relative flex items-center gap-3 rounded-xl hover:bg-gray-50 active:bg-blue-50 transition-colors group"
+      >
+        {/* Clickable row area */}
+        <button
+          type="button"
+          className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2.5 text-left"
+          onClick={() => handleHistoryRowClick(entry)}
+        >
+          {domain ? (
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+              alt=""
+              className="w-8 h-8 rounded-lg flex-shrink-0 object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-lg flex-shrink-0 bg-gray-100 flex items-center justify-center">
+              <Clock size={14} className="text-gray-400" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {entry.title}
+            </p>
+            <p className="text-xs text-gray-400 truncate">{timestamp}</p>
+          </div>
+        </button>
+        {/* Delete button */}
+        <button
+          type="button"
+          data-ocid={`profile.history.delete_button.${idx + 1}`}
+          onClick={() => removeHistory(entry.id)}
+          className="w-7 h-7 mr-2 flex items-center justify-center rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+          aria-label="Delete history entry"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    );
+  }
+
+  const { today, yesterday, older } = groupHistoryByDate(history);
+
+  function renderGroup(
+    label: string,
+    entries: HistoryEntry[],
+    isToday: boolean,
+  ) {
+    if (entries.length === 0) return null;
+    return (
+      <div key={label} className="mb-4">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 mb-1">
+          {label}
+        </p>
+        <div className="space-y-0.5">
+          {entries.map((entry, idx) => renderHistoryRow(entry, idx, isToday))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -199,7 +313,10 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
         </div>
       ) : (
         /* History Tab */
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div
+          className="flex-1 overflow-y-auto px-4 py-4"
+          style={{ scrollBehavior: "smooth" }}
+        >
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
               Recent
@@ -211,7 +328,7 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
                 onClick={clearHistory}
                 className="text-xs font-medium px-3 py-1 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
               >
-                Clear History
+                Clear All
               </button>
             )}
           </div>
@@ -224,31 +341,10 @@ export function ProfilePage({ onClose }: ProfilePageProps) {
               <p className="text-sm">No history yet</p>
             </div>
           ) : (
-            <div className="space-y-1">
-              {history.map((entry, idx) => (
-                <div
-                  key={entry.id}
-                  data-ocid={`profile.history.item.${idx + 1}`}
-                  className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <img
-                    src={`https://www.google.com/s2/favicons?domain=${entry.url.replace(/^https?:\/\//, "").split("/")[0]}&sz=32`}
-                    alt=""
-                    className="w-8 h-8 rounded-lg flex-shrink-0 object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {entry.title}
-                    </p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {new Date(entry.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div>
+              {renderGroup("Today", today, true)}
+              {renderGroup("Yesterday", yesterday, true)}
+              {renderGroup("Older", older, false)}
             </div>
           )}
         </div>
