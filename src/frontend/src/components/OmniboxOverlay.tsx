@@ -1,6 +1,7 @@
-import { ArrowLeft, Search, Star, X } from "lucide-react";
+import { ArrowLeft, Search, Star, TrendingUp, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { Bookmark } from "../useShortcutsStore";
 
 interface OmniboxOverlayProps {
@@ -18,6 +19,13 @@ const QUICK_SUGGESTIONS = [
   { label: "youtube.com", url: "youtube.com" },
   { label: "amazon.com", url: "amazon.com" },
   { label: "wikipedia.org", url: "wikipedia.org" },
+];
+
+const TRENDING_SUGGESTIONS = [
+  "Aflino AI",
+  "Latest Tech News",
+  "World Weather",
+  "Top Movies 2026",
 ];
 
 function handleNavigateLogic(
@@ -72,6 +80,7 @@ export function OmniboxOverlay({
         url: currentUrl,
         favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=32`,
       });
+      toast("Added to Bookmarks!", { duration: 2000 });
     }
   };
 
@@ -178,36 +187,63 @@ export function OmniboxOverlay({
         </button>
       </div>
 
-      {/* Quick suggestions */}
-      <div className="px-4 pt-5">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Quick Access
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {QUICK_SUGGESTIONS.map((s) => (
-            <button
-              key={s.url}
-              type="button"
-              data-ocid="omnibox.primary_button"
-              onClick={() => handleNavigateLogic(s.url, onNavigate, onClose)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-50 text-sm font-medium transition-colors hover:bg-blue-100 active:scale-95"
-              style={{
-                color: "#1A73E8",
-                border: "1px solid rgba(26,115,232,0.2)",
-              }}
-            >
-              <Search size={13} />
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Hint */}
-      <div className="px-4 pt-6">
-        <p className="text-xs text-gray-400 text-center">
-          Type a URL to navigate, or enter a search query
-        </p>
+      {/* Suggestions area */}
+      <div className="flex-1 overflow-y-auto">
+        {value.length > 0 ? (
+          /* Trending suggestions when typing */
+          <div className="px-4 pt-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Trending
+            </p>
+            <div className="flex flex-col gap-1">
+              {TRENDING_SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  data-ocid="omnibox.primary_button"
+                  onClick={() => handleNavigateLogic(s, onNavigate, onClose)}
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-blue-50 active:scale-95 transition-all text-left"
+                >
+                  <TrendingUp
+                    size={15}
+                    className="text-gray-400 flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">{s}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* Quick Access when input is empty */
+          <div className="px-4 pt-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Quick Access
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {QUICK_SUGGESTIONS.map((s) => (
+                <button
+                  key={s.url}
+                  type="button"
+                  data-ocid="omnibox.primary_button"
+                  onClick={() =>
+                    handleNavigateLogic(s.url, onNavigate, onClose)
+                  }
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-blue-50 text-sm font-medium transition-colors hover:bg-blue-100 active:scale-95"
+                  style={{
+                    color: "#1A73E8",
+                    border: "1px solid rgba(26,115,232,0.2)",
+                  }}
+                >
+                  <Search size={13} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 text-center mt-6">
+              Type a URL to navigate, or enter a search query
+            </p>
+          </div>
+        )}
       </div>
     </motion.div>
   );

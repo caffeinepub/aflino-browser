@@ -18,6 +18,13 @@ export type Bookmark = {
   favicon: string;
 };
 
+export type HistoryEntry = {
+  id: string;
+  title: string;
+  url: string;
+  timestamp: number;
+};
+
 export type ShortcutCategory =
   | "aflinoApps"
   | "globalBrands"
@@ -85,9 +92,12 @@ interface ShortcutsState extends MultiEngineApiConfig {
   // Legacy field kept for backwards compat with existing executeSearch logic
   partnerTrackingId: string;
   bookmarks: Bookmark[];
+  history: HistoryEntry[];
   enableUserProfiles: boolean;
   addBookmark: (b: Omit<Bookmark, "id">) => void;
   removeBookmark: (id: string) => void;
+  addHistory: (entry: Omit<HistoryEntry, "id">) => void;
+  clearHistory: () => void;
   setEnableUserProfiles: (v: boolean) => void;
   addShortcut: (
     category: ShortcutCategory,
@@ -194,6 +204,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
       // Legacy
       partnerTrackingId: "",
       bookmarks: [],
+      history: [],
       enableUserProfiles: true,
 
       addShortcut: (category, shortcut) =>
@@ -280,6 +291,14 @@ export const useShortcutsStore = create<ShortcutsState>()(
         set((state) => ({
           bookmarks: state.bookmarks.filter((bm) => bm.id !== id),
         })),
+      addHistory: (entry) =>
+        set((state) => ({
+          history: [
+            { ...entry, id: String(Date.now()) },
+            ...state.history,
+          ].slice(0, 100),
+        })),
+      clearHistory: () => set({ history: [] }),
       setEnableUserProfiles: (v) => set({ enableUserProfiles: v }),
       incrementSearchCount: () =>
         set((state) => ({ searchCount: state.searchCount + 1 })),

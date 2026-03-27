@@ -1,37 +1,37 @@
-# Aflino Browser — Connect Google Custom Search API to Search Logic
+# Aflino Browser
 
 ## Current State
-- `useShortcutsStore` has `googleSearchApiKey`, `searchEngineCx`, `inAppSearchEnabled`, and all multi-engine fields
-- Admin Panel fields for Google API Key and CX ID are wired to `setMultiEngineConfig` and persist in Zustand/localStorage
-- `Dashboard.tsx` has an `executeSearch()` function that already fetches from Google Custom Search JSON API when `inAppSearchEnabled && searchEngine === 'google' && googleSearchApiKey && searchEngineCx` — this works for the dashboard search bar
-- `SearchResultsPage.tsx` exists with full result list UI (title, snippet, link, thumbnail)
-- `OmniboxOverlay.tsx` handles URL/search input but calls `onNavigate(rawQuery)` directly for non-URL queries — it does NOT go through `executeSearch`, so in-app search never fires from the omnibox
-- `BrowserFrame.tsx` shows a hard error page when X-Frame-Options blocks an iframe; `onBlocked` in App.tsx just sets `blocked: true` on the tab
+- App has OmniboxOverlay with Star/bookmark icon, quick suggestions, and search logic
+- SearchResultsPage shows API results but shows empty state when API keys are missing (no onboarding)
+- ProfilePage has hardcoded 'Browser History' link that shows 'Coming Soon' toast
+- useShortcutsStore has bookmarks[] but no history[] array or actions
+- OmniboxOverlay has static QUICK_SUGGESTIONS (google.com, youtube.com, etc.) — not 'Trending' search suggestions
+- navigateTo() in App.tsx saves lastVisited for 'Jump back in' card but doesn't save to a history array
+- addBookmark() exists but no toast feedback shown when star is tapped
 
 ## Requested Changes (Diff)
 
 ### Add
-- In `App.tsx`: Add centralized `executeSearch(query)` logic at the BrowserApp level. When any search query (non-URL string) reaches `navigateTo`, check Zustand for `inAppSearchEnabled && googleSearchApiKey && searchEngineCx && searchEngine === 'google'`. If true, fetch from Google Custom Search JSON API and show `SearchResultsPage` overlay in App.tsx. If false/empty → fallback to redirect via selected engine URL.
-- A `showSearchResults`, `searchResultsQuery`, `searchResultsData`, `searchResultsLoading` state block in `BrowserApp` to drive `SearchResultsPage` rendered at the App level (visible regardless of whether Dashboard or BrowserFrame is active)
+- `history` array (type: `{ id: string; title: string; url: string; timestamp: number }[]`) to useShortcutsStore with `addHistory`, `clearHistory` actions
+- Onboarding/Setup card in SearchResultsPage: when `inAppSearchEnabled` is ON but API keys are empty, instead of empty state show a styled 'Activate Pro Search' card with description and 'Go to Admin Settings' button
+- History tab in ProfilePage: tabs at top (Overview / History), History tab lists history entries (favicon, title, url, timestamp) with a 'Clear History' button
+- Trending search suggestions in OmniboxOverlay: when user is typing (value.length > 0), show 3-4 dummy trending pills ("Aflino AI", "Latest Tech News", "World Weather", "Top Movies 2026") above the quick access section
+- Toast feedback in OmniboxOverlay: when star icon is clicked to add bookmark, show `toast('Added to Bookmarks!')`
 
 ### Modify
-- `App.tsx` `navigateTo`: Detect when input is NOT a URL (no `.` domain pattern, no `http`). For non-URL inputs, call the centralized `executeSearch` instead of building a search engine redirect URL and loading in iframe. This ensures OmniboxOverlay searches also trigger in-app results when the API is configured.
-- `Dashboard.tsx` `executeSearch`: Keep dashboard-level search bar working. But for consistency, it should call the same centralized logic. To avoid complexity: keep Dashboard's own `executeSearch` as-is (it already works). Add a comment that the App-level handler catches OmniboxOverlay queries.
-- `BrowserFrame.tsx` blocked state: Change the `onBlocked` flow. When the iframe detects a blocked site, instead of setting `blocked: true` (which shows a hard error page), call `window.open(tab.url, '_blank')` to open in a real browser tab and call `onGoBack()` to return to the dashboard/previous state. This provides the best "bypass" — the user gets the content without the X-Frame error wall. The `onBlocked` prop in `App.tsx` should trigger this behavior.
-- `SearchResultsPage.tsx`: When a result is clicked, the `onNavigate(result.link)` should navigate within the Aflino shell (BrowserFrame). No change needed — this already calls the correct path.
+- useShortcutsStore: add `history` field, `addHistory(entry)`, `clearHistory()` actions
+- App.tsx `navigateTo()`: after successfully navigating to a real URL or executing a search, call `addHistory({ title, url, timestamp: Date.now() })`
+- SearchResultsPage: accept `inAppSearchEnabled`, `hasApiKeys` props; show Setup Required card when `inAppSearchEnabled && !hasApiKeys`; Setup card has 'Go to Admin Settings' button that navigates to `/admin`
+- App.tsx: pass `inAppSearchEnabled` and `hasApiKeys` to SearchResultsPage
+- OmniboxOverlay: when `value.length > 0`, show trending suggestions section; clicking a trending suggestion runs `handleNavigateLogic` with that query; when adding bookmark call `toast('Added to Bookmarks!')`
+- ProfilePage: add tab switcher (Overview / History) at top; Overview tab = existing avatar + stats + quick links; History tab = scrollable list of history entries from store with 'Clear History' button
 
 ### Remove
-- Nothing to remove
+- Nothing removed
 
 ## Implementation Plan
-1. In `App.tsx`:
-   - Add state: `searchResultsOverlay: { query: string; results: SearchResult[]; loading: boolean } | null`
-   - Add `executeInAppSearch(query)` async function: checks Zustand for `inAppSearchEnabled && googleSearchApiKey && searchEngineCx && searchEngine === 'google'`. If conditions met, sets overlay loading state, fetches `https://www.googleapis.com/customsearch/v1?key={KEY}&cx={CX}&q={QUERY}`, stores results. If not met, falls through to URL redirect.
-   - Modify `navigateTo`: before building the search redirect URL, check if the value is a raw search query (not a URL). If so, call `executeInAppSearch`. Only fall through to the iframe redirect if in-app search is disabled/unconfigured.
-   - Render `SearchResultsPage` overlay from App.tsx when `searchResultsOverlay !== null`, with `onNavigate` wired to `navigateTo` and `onClose` clearing the overlay state.
-2. In `BrowserFrame.tsx`:
-   - Add `onAutoFallback?: (url: string) => void` prop
-   - In `handleLoad`, if the iframe contentWindow is cross-origin (caught by the try/catch that currently calls `onBlocked`), instead call `onAutoFallback?.(tab.url)` if provided, otherwise keep existing `onBlocked` behavior
-   - In App.tsx, pass `onAutoFallback={(url) => { window.open(url, '_blank'); goHome(); }}` so blocked sites open in a real browser tab rather than showing the error page
-3. Verify Admin Panel toggle `inAppSearchEnabled` is correctly read from Zustand in the `executeSearch` logic — it is, but add a defensive re-check.
-4. Validate that `executeSearch` in Dashboard handles the fallback correctly: empty API keys → redirect to `SEARCH_ENGINE_URLS[searchEngine] + encodeURIComponent(query)` (no error shown)
+1. Update useShortcutsStore: add HistoryEntry type, history[], addHistory(), clearHistory() 
+2. Update App.tsx: call addHistory() on URL navigation and search; pass hasApiKeys + inAppSearchEnabled to SearchResultsPage
+3. Update SearchResultsPage: add onboarding card when in-app search is on but keys missing
+4. Update OmniboxOverlay: add trending suggestions when typing; add toast on bookmark add
+5. Update ProfilePage: add Overview/History tabs; History tab lists entries with clear button

@@ -1,4 +1,4 @@
-import { ChevronLeft, Search, X } from "lucide-react";
+import { ChevronLeft, Search, X, Zap } from "lucide-react";
 
 interface SearchResult {
   title: string;
@@ -13,6 +13,9 @@ interface SearchResultsPageProps {
   onClose: () => void;
   onNavigate: (url: string) => void;
   loading?: boolean;
+  inAppSearchEnabled?: boolean;
+  hasApiKeys?: boolean;
+  onGoToAdmin?: () => void;
 }
 
 function SkeletonCard() {
@@ -37,9 +40,14 @@ export function SearchResultsPage({
   onClose,
   onNavigate,
   loading = false,
+  inAppSearchEnabled,
+  hasApiKeys,
+  onGoToAdmin,
 }: SearchResultsPageProps) {
   const thumbnail = (r: SearchResult) =>
     r.pagemap?.cse_thumbnail?.[0]?.src ?? null;
+
+  const showSetupCard = inAppSearchEnabled && !hasApiKeys;
 
   return (
     <div
@@ -72,8 +80,38 @@ export function SearchResultsPage({
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        {loading ? (
+      <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col">
+        {showSetupCard ? (
+          <div
+            data-ocid="search_results.empty_state"
+            className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center"
+          >
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 shadow-md"
+              style={{
+                background: "linear-gradient(135deg, #1A73E8, #0d5cc7)",
+              }}
+            >
+              <Zap size={28} className="text-white" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              Activate Pro Search
+            </h2>
+            <p className="text-sm text-gray-500 leading-relaxed max-w-xs mb-6">
+              To see results directly inside Aflino, please add your Google API
+              Key and CX ID in the Admin Panel.
+            </p>
+            <button
+              type="button"
+              data-ocid="search_results.primary_button"
+              onClick={onGoToAdmin}
+              className="px-6 py-3 rounded-full text-white text-sm font-semibold shadow-md active:scale-95 transition-transform"
+              style={{ background: "#1A73E8" }}
+            >
+              Go to Admin Settings
+            </button>
+          </div>
+        ) : loading ? (
           <>
             <SkeletonCard />
             <SkeletonCard />

@@ -63,8 +63,19 @@ function BrowserApp() {
     loading: boolean;
   } | null>(null);
 
-  const { bookmarks, addBookmark, removeBookmark, enableUserProfiles } =
-    useShortcutsStore();
+  const {
+    bookmarks,
+    addBookmark,
+    removeBookmark,
+    enableUserProfiles,
+    addHistory,
+    googleSearchApiKey,
+    searchEngineCx,
+    inAppSearchEnabled,
+  } = useShortcutsStore();
+
+  const hasApiKeys = !!googleSearchApiKey && !!searchEngineCx;
+
   const [lastVisited, setLastVisited] = useState<{
     url: string;
     title: string;
@@ -80,24 +91,19 @@ function BrowserApp() {
     async (query: string): Promise<boolean> => {
       const store = useShortcutsStore.getState();
       const {
-        googleSearchApiKey,
-        searchEngineCx,
-        inAppSearchEnabled,
+        googleSearchApiKey: apiKey,
+        searchEngineCx: cx,
+        inAppSearchEnabled: enabled,
         searchEngine,
         incrementSearchCount,
       } = store;
       incrementSearchCount();
 
-      if (
-        inAppSearchEnabled &&
-        searchEngine === "google" &&
-        googleSearchApiKey &&
-        searchEngineCx
-      ) {
+      if (enabled && searchEngine === "google" && apiKey && cx) {
         setSearchResultsOverlay({ query, results: [], loading: true });
         try {
           const res = await fetch(
-            `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${searchEngineCx}&q=${encodeURIComponent(query)}`,
+            `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query)}`,
           );
           const data = await res.json();
           setSearchResultsOverlay({
@@ -110,6 +116,13 @@ function BrowserApp() {
         }
         return true;
       }
+
+      // In-app search is enabled but keys are missing — show the setup card
+      if (enabled && (!apiKey || !cx)) {
+        setSearchResultsOverlay({ query, results: [], loading: false });
+        return true;
+      }
+
       return false;
     },
     [],
@@ -121,11 +134,19 @@ function BrowserApp() {
       const isSearchQuery = !url.startsWith("http") && !url.includes(".");
       if (isSearchQuery) {
         executeInAppSearch(url).then((handled) => {
-          if (handled) return;
+          if (handled) {
+            addHistory({
+              title: url,
+              url: `search:${url}`,
+              timestamp: Date.now(),
+            });
+            return;
+          }
           // Fallback: redirect to selected search engine
           const searchUrl =
             SEARCH_ENGINE_URLS[useShortcutsStore.getState().searchEngine] +
             encodeURIComponent(url);
+          addHistory({ title: url, url: searchUrl, timestamp: Date.now() });
           setTabs((prev) =>
             prev.map((t) =>
               t.id === activeTabId
@@ -154,6 +175,11 @@ function BrowserApp() {
             title: hostname,
             favicon: `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
           });
+          addHistory({
+            title: hostname,
+            url: normalized,
+            timestamp: Date.now(),
+          });
         } catch {
           // ignore invalid URLs
         }
@@ -172,7 +198,7 @@ function BrowserApp() {
         ),
       );
     },
-    [activeTabId, executeInAppSearch],
+    [activeTabId, executeInAppSearch, addHistory],
   );
 
   const newTab = useCallback(() => {
@@ -275,6 +301,11 @@ function BrowserApp() {
           onNavigate={(url) => {
             setSearchResultsOverlay(null);
             navigateTo(url);
+          }}
+          inAppSearchEnabled={inAppSearchEnabled}
+          hasApiKeys={hasApiKeys}
+          onGoToAdmin={() => {
+            window.location.href = "/admin";
           }}
         />
       )}
