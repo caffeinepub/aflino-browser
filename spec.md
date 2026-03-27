@@ -1,37 +1,39 @@
-# Aflino Browser
+# Aflino Browser — v32 Analytics Restructure + User Login System
 
 ## Current State
-- App has OmniboxOverlay with Star/bookmark icon, quick suggestions, and search logic
-- SearchResultsPage shows API results but shows empty state when API keys are missing (no onboarding)
-- ProfilePage has hardcoded 'Browser History' link that shows 'Coming Soon' toast
-- useShortcutsStore has bookmarks[] but no history[] array or actions
-- OmniboxOverlay has static QUICK_SUGGESTIONS (google.com, youtube.com, etc.) — not 'Trending' search suggestions
-- navigateTo() in App.tsx saves lastVisited for 'Jump back in' card but doesn't save to a history array
-- addBookmark() exists but no toast feedback shown when star is tapped
+- Analytics page shows a single flat dashboard with visitor charts, shortcut clicks, and a dummy search revenue card.
+- Profile page shows a static "Aflino User" avatar with history and bookmarks — no authentication.
+- No User Database in Admin Panel.
+- All bookmarks/history stored only in Zustand/localStorage, not linked to any account.
+- PWA standalone mode not tracked separately from web visits.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `history` array (type: `{ id: string; title: string; url: string; timestamp: number }[]`) to useShortcutsStore with `addHistory`, `clearHistory` actions
-- Onboarding/Setup card in SearchResultsPage: when `inAppSearchEnabled` is ON but API keys are empty, instead of empty state show a styled 'Activate Pro Search' card with description and 'Go to Admin Settings' button
-- History tab in ProfilePage: tabs at top (Overview / History), History tab lists history entries (favicon, title, url, timestamp) with a 'Clear History' button
-- Trending search suggestions in OmniboxOverlay: when user is typing (value.length > 0), show 3-4 dummy trending pills ("Aflino AI", "Latest Tech News", "World Weather", "Top Movies 2026") above the quick access section
-- Toast feedback in OmniboxOverlay: when star icon is clicked to add bookmark, show `toast('Added to Bookmarks!')`
+- **AnalyticsSection Part A (App Analytics):** Three cards — Total App Installs, Active App Users (today, standalone mode), In-App Engagement (daily clicks + avg time).
+- **AnalyticsSection Part B (Web Analytics):** Three cards — Total Web Visitors, Search Volume, Search History Log table (Date | Query | Engine | User Type).
+- **User Auth System (localStorage-based):** Email + Password registration/login stored in a `aflino_users` localStorage key. Zustand slice tracks `currentUser` (id, email, joinedDate) and `isLoggedIn`.
+- **Profile Login/Signup UI:** When logged out, show Login / Sign Up form in Profile overview. When logged in, show email, joined date, logout button.
+- **Bookmark/History sync to account:** When logged in, bookmarks and history are keyed by userId in localStorage instead of global store.
+- **Admin → User Database tab:** Table of all registered users with [User ID | Email | Last Active Date | Total Searches | Device Type]. Block/Delete controls per row.
+- **PWA detection helper:** `isPwaMode()` checks `window.matchMedia('(display-mode: standalone)').matches || navigator.standalone`. All App metric counters only increment when this is true; Web counters when false.
+- **Analytics tracking fields in store:** `appInstalls`, `activeAppUsersToday`, `appDailyClicks`, `webVisitorsTotal`, `searchHistoryLog` (array of {date, query, engine, userType}).
 
 ### Modify
-- useShortcutsStore: add `history` field, `addHistory(entry)`, `clearHistory()` actions
-- App.tsx `navigateTo()`: after successfully navigating to a real URL or executing a search, call `addHistory({ title, url, timestamp: Date.now() })`
-- SearchResultsPage: accept `inAppSearchEnabled`, `hasApiKeys` props; show Setup Required card when `inAppSearchEnabled && !hasApiKeys`; Setup card has 'Go to Admin Settings' button that navigates to `/admin`
-- App.tsx: pass `inAppSearchEnabled` and `hasApiKeys` to SearchResultsPage
-- OmniboxOverlay: when `value.length > 0`, show trending suggestions section; clicking a trending suggestion runs `handleNavigateLogic` with that query; when adding bookmark call `toast('Added to Bookmarks!')`
-- ProfilePage: add tab switcher (Overview / History) at top; Overview tab = existing avatar + stats + quick links; History tab = scrollable list of history entries from store with 'Clear History' button
+- **AnalyticsSection:** Replace existing flat layout with two labeled sections (Part A / Part B). Keep existing charts below as supplementary.
+- **useShortcutsStore:** Add user auth state, user list (for admin), and analytics tracking fields.
+- **ProfilePage:** Add login/logout UI flow in Overview tab. Show user info when logged in.
+- **AdminDashboard:** Add "User Database" sidebar item and corresponding section component.
+- **App.tsx / BrowserFrame:** Track page visit and search events, distinguishing PWA vs web mode, updating the store.
 
 ### Remove
-- Nothing removed
+- Nothing removed; all existing features preserved.
 
 ## Implementation Plan
-1. Update useShortcutsStore: add HistoryEntry type, history[], addHistory(), clearHistory() 
-2. Update App.tsx: call addHistory() on URL navigation and search; pass hasApiKeys + inAppSearchEnabled to SearchResultsPage
-3. Update SearchResultsPage: add onboarding card when in-app search is on but keys missing
-4. Update OmniboxOverlay: add trending suggestions when typing; add toast on bookmark add
-5. Update ProfilePage: add Overview/History tabs; History tab lists entries with clear button
+1. Extend `useShortcutsStore` with: user auth slice (registeredUsers list, currentUser, login/logout/register actions), analytics slice (appInstalls, activeAppUsersToday, appDailyClicks, webVisitorsTotal, searchHistoryLog).
+2. Add `isPwaMode()` util in a shared file.
+3. Rewrite `AnalyticsSection.tsx` — two sections (App Analytics, Web Analytics) with metric cards, plus the Search History Log table; keep existing charts as a third section.
+4. Rewrite `ProfilePage.tsx` Overview tab — add conditional login/signup form vs logged-in view (email, joined date, logout).
+5. Create `UserDatabaseSection.tsx` admin component — table of users with block/delete actions.
+6. Add "User Database" nav item and route in `AdminDashboard.tsx`.
+7. In `App.tsx` (or BrowserFrame), on each navigation/search, call the correct analytics increment based on `isPwaMode()`.

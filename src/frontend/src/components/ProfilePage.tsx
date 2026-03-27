@@ -3,6 +3,10 @@ import {
   ChevronRight,
   Clock,
   Download,
+  Eye,
+  EyeOff,
+  LogOut,
+  Mail,
   Search,
   Shield,
   Smartphone,
@@ -12,6 +16,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { type HistoryEntry, useShortcutsStore } from "../useShortcutsStore";
 
 interface ProfilePageProps {
@@ -27,11 +32,9 @@ function groupHistoryByDate(entries: HistoryEntry[]) {
     now.getDate(),
   ).getTime();
   const yesterdayStart = todayStart - 86400000;
-
   const today: HistoryEntry[] = [];
   const yesterday: HistoryEntry[] = [];
   const older: HistoryEntry[] = [];
-
   for (const entry of entries) {
     if (entry.timestamp >= todayStart) today.push(entry);
     else if (entry.timestamp >= yesterdayStart) yesterday.push(entry);
@@ -40,49 +43,185 @@ function groupHistoryByDate(entries: HistoryEntry[]) {
   return { today, yesterday, older };
 }
 
-// --- PWA Install Hook ---
 function usePwaInstall() {
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-
   useEffect(() => {
-    // Check if already installed (standalone mode)
     if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
       return;
     }
-
     const handler = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e);
     };
-
     window.addEventListener("beforeinstallprompt", handler);
     window.addEventListener("appinstalled", () => {
       setIsInstalled(true);
       setInstallPrompt(null);
     });
-
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
-
   const triggerInstall = async () => {
     if (!installPrompt) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (installPrompt as any).prompt();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { outcome } = await (installPrompt as any).userChoice;
     if (outcome === "accepted") {
       setIsInstalled(true);
       setInstallPrompt(null);
     }
   };
-
   return {
     canInstall: !!installPrompt && !isInstalled,
     isInstalled,
     triggerInstall,
   };
+}
+
+function LoginSignupCard() {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { loginUser, registerUser } = useShortcutsStore();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!email.trim() || !password.trim()) {
+      setError("Please fill in all fields.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 400));
+    if (mode === "login") {
+      const ok = loginUser(email.trim(), password);
+      if (!ok) setError("Invalid email or password. Account may be blocked.");
+      else toast.success("Welcome back!");
+    } else {
+      const result = registerUser(email.trim(), password);
+      if (!result.success) setError(result.error ?? "Registration failed.");
+      else toast.success("Account created! Welcome to Aflino.");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="px-4 py-6 flex flex-col items-center gap-6">
+      {/* Hero */}
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="flex flex-col items-center text-center"
+      >
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 shadow-lg"
+          style={{ background: "linear-gradient(135deg, #1A73E8, #0d5cc7)" }}
+        >
+          <User size={30} className="text-white" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900">Welcome to Aflino</h2>
+        <p className="text-sm text-gray-400 mt-1">
+          Sign in to sync your bookmarks and history
+        </p>
+      </motion.div>
+
+      {/* Mode toggle */}
+      <div className="flex bg-gray-100 rounded-xl p-1 w-full max-w-xs">
+        {(["login", "signup"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            data-ocid={`profile.auth.${m}_tab`}
+            onClick={() => {
+              setMode(m);
+              setError("");
+            }}
+            className="flex-1 py-2 text-sm font-semibold rounded-lg transition-all"
+            style={{
+              background: mode === m ? "#fff" : "transparent",
+              color: mode === m ? "#1A73E8" : "#6b7280",
+              boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+            }}
+          >
+            {m === "login" ? "Login" : "Sign Up"}
+          </button>
+        ))}
+      </div>
+
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-xs flex flex-col gap-3"
+      >
+        <div className="relative">
+          <Mail
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email address"
+            data-ocid="profile.auth.email_input"
+            className="w-full pl-9 pr-4 py-3 text-sm bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-blue-400 focus:bg-white transition-all"
+          />
+        </div>
+        <div className="relative">
+          <Shield
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          />
+          <input
+            type={showPw ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            data-ocid="profile.auth.password_input"
+            className="w-full pl-9 pr-10 py-3 text-sm bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-blue-400 focus:bg-white transition-all"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+          >
+            {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+
+        {error && (
+          <p
+            data-ocid="profile.auth.error_state"
+            className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2"
+          >
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          data-ocid="profile.auth.submit_button"
+          disabled={loading}
+          className="w-full py-3 text-sm font-bold rounded-xl text-white transition-all active:scale-95 disabled:opacity-60"
+          style={{ background: "linear-gradient(135deg, #1A73E8, #0d5cc7)" }}
+        >
+          {loading
+            ? "Please wait..."
+            : mode === "login"
+              ? "Login"
+              : "Create Account"}
+        </button>
+      </form>
+    </div>
+  );
 }
 
 export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
@@ -91,14 +230,18 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
   );
   const [historyQuery, setHistoryQuery] = useState("");
   const historySearchRef = useRef<HTMLInputElement>(null);
-  const { history, clearHistory, removeHistory, bookmarks } =
-    useShortcutsStore();
+  const {
+    history,
+    clearHistory,
+    removeHistory,
+    bookmarks,
+    currentUser,
+    logoutUser,
+  } = useShortcutsStore();
   const { canInstall, isInstalled, triggerInstall } = usePwaInstall();
 
-  // Focus search when switching to history tab
   useEffect(() => {
     if (activeTab === "history" && historyQuery === "") {
-      // Small delay so the tab transition is done
       const t = setTimeout(() => historySearchRef.current?.focus(), 200);
       return () => clearTimeout(t);
     }
@@ -145,7 +288,6 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
           minute: "2-digit",
         })
       : new Date(entry.timestamp).toLocaleDateString();
-
     return (
       <div
         key={entry.id}
@@ -191,7 +333,6 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
     );
   }
 
-  // Filtered history
   const q = historyQuery.trim().toLowerCase();
   const filteredHistory = q
     ? history.filter(
@@ -199,7 +340,6 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
           e.title.toLowerCase().includes(q) || e.url.toLowerCase().includes(q),
       )
     : history;
-
   const { today, yesterday, older } = groupHistoryByDate(filteredHistory);
 
   function renderGroup(
@@ -219,6 +359,11 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
       </div>
     );
   }
+
+  // Derive initials from email
+  const userInitials = currentUser?.email
+    ? currentUser.email.slice(0, 2).toUpperCase()
+    : "AU";
 
   return (
     <motion.div
@@ -269,164 +414,212 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
 
       {activeTab === "overview" ? (
         <div className="flex-1 overflow-y-auto">
-          {/* Avatar section */}
-          <div className="flex flex-col items-center py-10 px-4">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.3, ease: "easeOut" }}
-              className="w-[72px] h-[72px] rounded-full flex items-center justify-center mb-4 shadow-lg"
-              style={{
-                background: "linear-gradient(135deg, #1A73E8, #0d5cc7)",
-              }}
-            >
-              <User size={34} className="text-white" />
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.3 }}
-              className="text-center"
-            >
-              <h2 className="text-xl font-bold text-gray-900">Aflino User</h2>
-              <p className="text-sm text-gray-400 mt-0.5">aflino@browser.app</p>
-            </motion.div>
-
-            {/* Stats row */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.3 }}
-              className="flex gap-8 mt-6 px-8 py-4 rounded-2xl w-full max-w-xs"
-              style={{ background: "rgba(26,115,232,0.06)" }}
-            >
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold" style={{ color: "#1A73E8" }}>
-                  {history.length}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">History</p>
-              </div>
-              <div className="w-px bg-blue-100" />
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold" style={{ color: "#1A73E8" }}>
-                  {bookmarks.length}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">Bookmarks</p>
-              </div>
-              <div className="w-px bg-blue-100" />
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold" style={{ color: "#1A73E8" }}>
-                  0
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">Downloads</p>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Install PWA Card */}
-          {canInstall && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.22, duration: 0.3 }}
-              className="mx-4 mb-4 rounded-2xl overflow-hidden border border-blue-100"
-              style={{
-                background: "linear-gradient(135deg, #1A73E8 0%, #0d5cc7 100%)",
-              }}
-            >
-              <div className="flex items-center gap-4 px-5 py-4">
-                <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <Smartphone size={20} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white">
-                    Install Aflino App
-                  </p>
-                  <p className="text-xs text-blue-100 mt-0.5 leading-tight">
-                    Add to home screen for a native app experience
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  data-ocid="profile.install_pwa_button"
-                  onClick={triggerInstall}
-                  className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-white transition-all active:scale-95"
-                  style={{ color: "#1A73E8" }}
+          {!currentUser ? (
+            // ─── NOT LOGGED IN ───
+            <LoginSignupCard />
+          ) : (
+            // ─── LOGGED IN ───
+            <>
+              <div className="flex flex-col items-center py-8 px-4">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.1, duration: 0.3 }}
+                  className="w-[72px] h-[72px] rounded-full flex items-center justify-center mb-4 shadow-lg"
+                  style={{
+                    background: "linear-gradient(135deg, #1A73E8, #0d5cc7)",
+                  }}
                 >
-                  Install
-                </button>
-              </div>
-            </motion.div>
-          )}
+                  <span className="text-2xl font-bold text-white">
+                    {userInitials}
+                  </span>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15, duration: 0.3 }}
+                  className="text-center"
+                >
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {currentUser.email}
+                  </h2>
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    Joined:{" "}
+                    {new Date(currentUser.joinedDate).toLocaleDateString(
+                      "en-US",
+                      { year: "numeric", month: "long", day: "numeric" },
+                    )}
+                  </p>
+                </motion.div>
 
-          {isInstalled && (
-            <div className="mx-4 mb-4 rounded-2xl bg-green-50 border border-green-100 flex items-center gap-3 px-5 py-3">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <Smartphone size={15} className="text-green-600" />
-              </div>
-              <p className="text-sm text-green-700 font-medium">
-                Aflino is installed on your device
-              </p>
-            </div>
-          )}
-
-          {/* Quick Links */}
-          <div className="px-4 pb-8">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
-              Quick Links
-            </p>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {quickLinks.map(
-                ({ icon: Icon, label, description, action, isBlue }, idx) => (
-                  <motion.button
-                    key={label}
-                    type="button"
-                    data-ocid={`profile.${label.toLowerCase().replace(/\s+/g, "_")}_button`}
-                    onClick={action}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.25 + idx * 0.06, duration: 0.25 }}
-                    className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
-                    style={{
-                      borderTop: idx > 0 ? "1px solid #f3f4f6" : undefined,
-                    }}
-                  >
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background: isBlue ? "rgba(26,115,232,0.1)" : "#f9fafb",
-                      }}
+                {/* Stats */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.3 }}
+                  className="flex gap-8 mt-6 px-8 py-4 rounded-2xl w-full max-w-xs"
+                  style={{ background: "rgba(26,115,232,0.06)" }}
+                >
+                  <div className="flex-1 text-center">
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: "#1A73E8" }}
                     >
-                      <Icon
-                        size={18}
-                        style={{ color: isBlue ? "#1A73E8" : "#6b7280" }}
-                      />
+                      {history.length}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">History</p>
+                  </div>
+                  <div className="w-px bg-blue-100" />
+                  <div className="flex-1 text-center">
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: "#1A73E8" }}
+                    >
+                      {bookmarks.length}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">Bookmarks</p>
+                  </div>
+                  <div className="w-px bg-blue-100" />
+                  <div className="flex-1 text-center">
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: "#1A73E8" }}
+                    >
+                      0
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">Downloads</p>
+                  </div>
+                </motion.div>
+
+                {/* Logout */}
+                <motion.button
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25, duration: 0.25 }}
+                  type="button"
+                  data-ocid="profile.logout_button"
+                  onClick={() => {
+                    logoutUser();
+                    toast.success("Logged out successfully.");
+                  }}
+                  className="mt-5 flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition-colors"
+                >
+                  <LogOut size={15} />
+                  Logout
+                </motion.button>
+              </div>
+
+              {/* Install PWA Card */}
+              {canInstall && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.22, duration: 0.3 }}
+                  className="mx-4 mb-4 rounded-2xl overflow-hidden border border-blue-100"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1A73E8 0%, #0d5cc7 100%)",
+                  }}
+                >
+                  <div className="flex items-center gap-4 px-5 py-4">
+                    <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                      <Smartphone size={20} className="text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: isBlue ? "#1A73E8" : "#111827" }}
-                      >
-                        {label}
+                      <p className="text-sm font-bold text-white">
+                        Install Aflino App
                       </p>
-                      <p className="text-xs text-gray-400 truncate">
-                        {description}
+                      <p className="text-xs text-blue-100 mt-0.5 leading-tight">
+                        Add to home screen for a native app experience
                       </p>
                     </div>
-                    <ChevronRight
-                      size={16}
-                      className="text-gray-300 flex-shrink-0"
-                    />
-                  </motion.button>
-                ),
+                    <button
+                      type="button"
+                      data-ocid="profile.install_pwa_button"
+                      onClick={triggerInstall}
+                      className="flex-shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-white transition-all active:scale-95"
+                      style={{ color: "#1A73E8" }}
+                    >
+                      Install
+                    </button>
+                  </div>
+                </motion.div>
               )}
-            </div>
-          </div>
+              {isInstalled && (
+                <div className="mx-4 mb-4 rounded-2xl bg-green-50 border border-green-100 flex items-center gap-3 px-5 py-3">
+                  <Smartphone size={15} className="text-green-600" />
+                  <p className="text-sm text-green-700 font-medium">
+                    Aflino is installed on your device
+                  </p>
+                </div>
+              )}
+
+              {/* Quick Links */}
+              <div className="px-4 pb-8">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+                  Quick Links
+                </p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  {quickLinks.map(
+                    (
+                      { icon: Icon, label, description, action, isBlue },
+                      idx,
+                    ) => (
+                      <motion.button
+                        key={label}
+                        type="button"
+                        data-ocid={`profile.${label.toLowerCase().replace(/\s+/g, "_")}_button`}
+                        onClick={action}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{
+                          delay: 0.25 + idx * 0.06,
+                          duration: 0.25,
+                        }}
+                        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                        style={{
+                          borderTop: idx > 0 ? "1px solid #f3f4f6" : undefined,
+                        }}
+                      >
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{
+                            background: isBlue
+                              ? "rgba(26,115,232,0.1)"
+                              : "#f9fafb",
+                          }}
+                        >
+                          <Icon
+                            size={18}
+                            style={{ color: isBlue ? "#1A73E8" : "#6b7280" }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: isBlue ? "#1A73E8" : "#111827" }}
+                          >
+                            {label}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate">
+                            {description}
+                          </p>
+                        </div>
+                        <ChevronRight
+                          size={16}
+                          className="text-gray-300 flex-shrink-0"
+                        />
+                      </motion.button>
+                    ),
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         /* History Tab */
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Sticky search bar */}
           <div className="px-4 pt-3 pb-2 bg-white border-b border-gray-50">
             <div className="relative flex items-center">
               <Search
@@ -454,11 +647,7 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
             </div>
           </div>
 
-          {/* History list */}
-          <div
-            className="flex-1 overflow-y-auto px-4 py-3"
-            style={{ scrollBehavior: "smooth" }}
-          >
+          <div className="flex-1 overflow-y-auto px-4 py-3">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 {q ? `Results for "${historyQuery}"` : "Recent"}
@@ -499,7 +688,6 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
             ) : (
               <div>
                 {q ? (
-                  // When searching, show all results flat (no date grouping)
                   <div className="space-y-0.5">
                     {filteredHistory.map((entry, idx) =>
                       renderHistoryRow(entry, idx, true),

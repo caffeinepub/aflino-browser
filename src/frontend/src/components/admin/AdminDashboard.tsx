@@ -8,6 +8,7 @@ import {
   Palette,
   Settings,
   Shield,
+  Users,
   X,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -20,13 +21,15 @@ import { AdminLogin } from "./AdminLogin";
 import { AnalyticsSection } from "./AnalyticsSection";
 import { ImageCropperModal } from "./ImageCropperModal";
 import { ShortcutsManager } from "./ShortcutsManager";
+import { UserDatabaseSection } from "./UserDatabaseSection";
 
 type Section =
   | "analytics"
   | "shortcuts"
   | "appearance"
   | "settings"
-  | "languages";
+  | "languages"
+  | "users";
 
 const navItems: {
   id: Section;
@@ -39,6 +42,7 @@ const navItems: {
     label: "Shortcuts Manager",
     icon: <LayoutGrid size={18} />,
   },
+  { id: "users", label: "User Database", icon: <Users size={18} /> },
   { id: "languages", label: "Languages", icon: <Globe size={18} /> },
   { id: "appearance", label: "Appearance", icon: <Palette size={18} /> },
   { id: "settings", label: "Settings", icon: <Settings size={18} /> },
@@ -1088,6 +1092,7 @@ export function AdminDashboard() {
           {activeSection === "languages" && <LanguageManagerSection />}
           {activeSection === "appearance" && <AppearanceSection />}
           {activeSection === "settings" && <SettingsSection />}
+          {activeSection === "users" && <UserDatabaseSection />}
         </main>
 
         {/* Footer */}

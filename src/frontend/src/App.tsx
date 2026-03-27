@@ -14,6 +14,7 @@ import { SplashScreen } from "./components/SplashScreen";
 import { TabSwitcher } from "./components/TabSwitcher";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "./useShortcutsStore";
+import { isPwaMode } from "./utils/pwaUtils";
 
 export type Tab = {
   id: string;
@@ -95,9 +96,11 @@ function BrowserApp() {
         searchEngineCx: cx,
         inAppSearchEnabled: enabled,
         searchEngine,
-        incrementSearchCount,
+        recordSearch,
+        currentUser,
       } = store;
-      incrementSearchCount();
+      const userType = currentUser ? "Logged-in" : "Guest";
+      recordSearch(query, searchEngine, userType);
 
       if (enabled && searchEngine === "google" && apiKey && cx) {
         setSearchResultsOverlay({ query, results: [], loading: true });
@@ -365,7 +368,22 @@ export default function App() {
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 3000);
-    return () => clearTimeout(t);
+
+    // Analytics tracking
+    const store = useShortcutsStore.getState();
+    if (isPwaMode()) {
+      store.recordAppOpen();
+    } else {
+      store.recordWebVisit();
+    }
+
+    const onInstalled = () => store.recordAppInstall();
+    window.addEventListener("appinstalled", onInstalled);
+
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   if (isAdmin) {

@@ -25,6 +25,25 @@ export type HistoryEntry = {
   timestamp: number;
 };
 
+export type RegisteredUser = {
+  id: string;
+  email: string;
+  passwordHash: string;
+  joinedDate: string;
+  lastActive: string;
+  totalSearches: number;
+  deviceType: string;
+  isBlocked: boolean;
+};
+
+export type SearchHistoryLogEntry = {
+  id: string;
+  date: string;
+  query: string;
+  engine: string;
+  userType: "Guest" | "Logged-in";
+};
+
 export type ShortcutCategory =
   | "aflinoApps"
   | "globalBrands"
@@ -47,23 +66,19 @@ export const SEARCH_ENGINE_URLS: Record<SearchEngine, string> = {
 };
 
 export interface MultiEngineApiConfig {
-  // Google
   googleSearchApiKey: string;
   searchEngineCx: string;
   googlePartnerTrackingId: string;
-  // Bing
   bingSearchApiKey: string;
   bingPartnershipCampaignId: string;
-  // DuckDuckGo
   duckduckgoAffiliateToken: string;
-  // Custom Engine
   customEngineUrlPattern: string;
   customAffiliateId: string;
-  // Global
   inAppSearchEnabled: boolean;
 }
 
 interface ShortcutsState extends MultiEngineApiConfig {
+  // Shortcuts
   aflinoApps: Shortcut[];
   globalBrands: Shortcut[];
   social: Shortcut[];
@@ -80,26 +95,33 @@ interface ShortcutsState extends MultiEngineApiConfig {
     social: string;
     productivity: string;
   };
+  // Appearance
   homeLogoUrl: string;
   headerBrandText: string;
   splashLogoUrl: string;
   splashBgColor: string;
   splashAnimation: "fade" | "scale" | "slide";
+  // Features
   voiceCameraEnabled: boolean;
   searchEngine: SearchEngine;
   jsEnabled: boolean;
   searchCount: number;
-  // Legacy field kept for backwards compat with existing executeSearch logic
   partnerTrackingId: string;
+  // Bookmarks & History
   bookmarks: Bookmark[];
   history: HistoryEntry[];
   enableUserProfiles: boolean;
-  addBookmark: (b: Omit<Bookmark, "id">) => void;
-  removeBookmark: (id: string) => void;
-  addHistory: (entry: Omit<HistoryEntry, "id">) => void;
-  clearHistory: () => void;
-  removeHistory: (id: string) => void;
-  setEnableUserProfiles: (v: boolean) => void;
+  // User Auth
+  currentUser: { id: string; email: string; joinedDate: string } | null;
+  registeredUsers: RegisteredUser[];
+  // Analytics
+  appInstalls: number;
+  activeAppUsersToday: number;
+  appDailyClicks: number;
+  webVisitorsTotal: number;
+  searchHistoryLog: SearchHistoryLogEntry[];
+
+  // Shortcut actions
   addShortcut: (
     category: ShortcutCategory,
     shortcut: Omit<Shortcut, "id">,
@@ -128,7 +150,6 @@ interface ShortcutsState extends MultiEngineApiConfig {
   setSearchEngine: (engine: SearchEngine) => void;
   setJsEnabled: (enabled: boolean) => void;
   setMultiEngineConfig: (config: Partial<MultiEngineApiConfig>) => void;
-  /** Legacy alias kept so older callsites don't break */
   setSearchApiConfig: (
     config: Partial<{
       googleSearchApiKey: string;
@@ -138,11 +159,38 @@ interface ShortcutsState extends MultiEngineApiConfig {
     }>,
   ) => void;
   incrementSearchCount: () => void;
+  // Bookmark & history actions
+  addBookmark: (b: Omit<Bookmark, "id">) => void;
+  removeBookmark: (id: string) => void;
+  addHistory: (entry: Omit<HistoryEntry, "id">) => void;
+  clearHistory: () => void;
+  removeHistory: (id: string) => void;
+  setEnableUserProfiles: (v: boolean) => void;
+  // User auth actions
+  loginUser: (email: string, password: string) => boolean;
+  registerUser: (
+    email: string,
+    password: string,
+  ) => { success: boolean; error?: string };
+  logoutUser: () => void;
+  blockUser: (id: string) => void;
+  deleteUser: (id: string) => void;
+  incrementUserSearches: (userId: string) => void;
+  // Analytics actions
+  recordAppOpen: () => void;
+  recordWebVisit: () => void;
+  recordSearch: (
+    query: string,
+    engine: string,
+    userType: "Guest" | "Logged-in",
+  ) => void;
+  recordAppInstall: () => void;
+  incrementAppDailyClicks: () => void;
 }
 
 export const useShortcutsStore = create<ShortcutsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       aflinoApps: adminConfig.aflinoApps.map((a) => ({
         id: a.id,
         name: a.label,
@@ -188,26 +236,28 @@ export const useShortcutsStore = create<ShortcutsState>()(
       searchEngine: "google",
       jsEnabled: true,
       searchCount: 0,
-      // Google
       googleSearchApiKey: "",
       searchEngineCx: "",
       googlePartnerTrackingId: "",
-      // Bing
       bingSearchApiKey: "",
       bingPartnershipCampaignId: "",
-      // DuckDuckGo
       duckduckgoAffiliateToken: "",
-      // Custom
       customEngineUrlPattern: "",
       customAffiliateId: "",
-      // Global
       inAppSearchEnabled: false,
-      // Legacy
       partnerTrackingId: "",
       bookmarks: [],
       history: [],
       enableUserProfiles: true,
+      currentUser: null,
+      registeredUsers: [],
+      appInstalls: 0,
+      activeAppUsersToday: 0,
+      appDailyClicks: 0,
+      webVisitorsTotal: 0,
+      searchHistoryLog: [],
 
+      // Shortcut actions
       addShortcut: (category, shortcut) =>
         set((state) => ({
           [category]: [
@@ -245,10 +295,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
         })),
       setCategoryTitle: (category, title) =>
         set((state) => ({
-          categoryTitles: {
-            ...state.categoryTitles,
-            [category]: title,
-          },
+          categoryTitles: { ...state.categoryTitles, [category]: title },
         })),
       setHomeAppearance: (config) =>
         set((state) => ({
@@ -258,7 +305,6 @@ export const useShortcutsStore = create<ShortcutsState>()(
           ...(config.headerBrandText !== undefined && {
             headerBrandText: config.headerBrandText,
           }),
-          // keep the rest of state untouched
           categoryVisibility: state.categoryVisibility,
         })),
       setSplashConfig: (config) => set((state) => ({ ...state, ...config })),
@@ -284,6 +330,8 @@ export const useShortcutsStore = create<ShortcutsState>()(
             inAppSearchEnabled: config.inAppSearchEnabled,
           }),
         })),
+      incrementSearchCount: () =>
+        set((state) => ({ searchCount: state.searchCount + 1 })),
       addBookmark: (b) =>
         set((state) => ({
           bookmarks: [...state.bookmarks, { ...b, id: String(Date.now()) }],
@@ -301,12 +349,123 @@ export const useShortcutsStore = create<ShortcutsState>()(
         })),
       clearHistory: () => set({ history: [] }),
       removeHistory: (id) =>
-        set((state) => ({
-          history: state.history.filter((h) => h.id !== id),
-        })),
+        set((state) => ({ history: state.history.filter((h) => h.id !== id) })),
       setEnableUserProfiles: (v) => set({ enableUserProfiles: v }),
-      incrementSearchCount: () =>
-        set((state) => ({ searchCount: state.searchCount + 1 })),
+
+      // User auth
+      loginUser: (email, password) => {
+        const { registeredUsers } = get();
+        const hash = btoa(password);
+        const user = registeredUsers.find(
+          (u) => u.email === email && u.passwordHash === hash,
+        );
+        if (!user || user.isBlocked) return false;
+        const lastActive = new Date().toISOString();
+        set((state) => ({
+          currentUser: {
+            id: user.id,
+            email: user.email,
+            joinedDate: user.joinedDate,
+          },
+          registeredUsers: state.registeredUsers.map((u) =>
+            u.id === user.id ? { ...u, lastActive } : u,
+          ),
+        }));
+        return true;
+      },
+      registerUser: (email, password) => {
+        const { registeredUsers } = get();
+        if (registeredUsers.find((u) => u.email === email)) {
+          return { success: false, error: "Email already registered" };
+        }
+        const pwaMode =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (navigator as any).standalone === true;
+        const newUser: RegisteredUser = {
+          id: String(Date.now()),
+          email,
+          passwordHash: btoa(password),
+          joinedDate: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+          totalSearches: 0,
+          deviceType: pwaMode ? "PWA" : "Web",
+          isBlocked: false,
+        };
+        set((state) => ({
+          registeredUsers: [...state.registeredUsers, newUser],
+          currentUser: {
+            id: newUser.id,
+            email: newUser.email,
+            joinedDate: newUser.joinedDate,
+          },
+        }));
+        return { success: true };
+      },
+      logoutUser: () => set({ currentUser: null }),
+      blockUser: (id) =>
+        set((state) => ({
+          registeredUsers: state.registeredUsers.map((u) =>
+            u.id === id ? { ...u, isBlocked: !u.isBlocked } : u,
+          ),
+        })),
+      deleteUser: (id) =>
+        set((state) => ({
+          registeredUsers: state.registeredUsers.filter((u) => u.id !== id),
+        })),
+      incrementUserSearches: (userId) =>
+        set((state) => ({
+          registeredUsers: state.registeredUsers.map((u) =>
+            u.id === userId ? { ...u, totalSearches: u.totalSearches + 1 } : u,
+          ),
+        })),
+
+      // Analytics
+      recordAppOpen: () => {
+        const pwaMode =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (navigator as any).standalone === true;
+        if (pwaMode)
+          set((state) => ({
+            activeAppUsersToday: state.activeAppUsersToday + 1,
+          }));
+      },
+      recordWebVisit: () => {
+        const pwaMode =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          (navigator as any).standalone === true;
+        if (!pwaMode)
+          set((state) => ({ webVisitorsTotal: state.webVisitorsTotal + 1 }));
+      },
+      recordSearch: (query, engine, userType) => {
+        const entry: SearchHistoryLogEntry = {
+          id: String(Date.now()),
+          date: new Date().toISOString(),
+          query,
+          engine,
+          userType,
+        };
+        set((state) => {
+          const newLog = [entry, ...state.searchHistoryLog].slice(0, 500);
+          const newCount = state.searchCount + 1;
+          // increment current user's searches
+          const newRegisteredUsers = state.currentUser
+            ? state.registeredUsers.map((u) =>
+                u.id === state.currentUser!.id
+                  ? { ...u, totalSearches: u.totalSearches + 1 }
+                  : u,
+              )
+            : state.registeredUsers;
+          return {
+            searchHistoryLog: newLog,
+            searchCount: newCount,
+            registeredUsers: newRegisteredUsers,
+          };
+        });
+      },
+      recordAppInstall: () =>
+        set((state) => ({ appInstalls: state.appInstalls + 1 })),
+      incrementAppDailyClicks: () =>
+        set((state) => ({ appDailyClicks: state.appDailyClicks + 1 })),
     }),
     { name: "aflino_shortcuts" },
   ),
