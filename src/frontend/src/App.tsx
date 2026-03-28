@@ -12,6 +12,7 @@ import { ProfilePage } from "./components/ProfilePage";
 import { ProgressBar } from "./components/ProgressBar";
 import { SearchResultsPage } from "./components/SearchResultsPage";
 import { SplashScreen } from "./components/SplashScreen";
+import { SplitView } from "./components/SplitView";
 import { TabSwitcher } from "./components/TabSwitcher";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { useGeoDetection } from "./hooks/useGeoDetection";
@@ -67,6 +68,12 @@ function BrowserApp() {
     loading: boolean;
   } | null>(null);
 
+  // Ghost Mode
+  const [ghostMode, setGhostMode] = useState(false);
+
+  // Split View
+  const [splitViewActive, setSplitViewActive] = useState(false);
+
   const {
     bookmarks,
     addBookmark,
@@ -90,6 +97,32 @@ function BrowserApp() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const activePage = activeTab.url === "" ? "home" : "other";
+
+  // Ghost Mode: clear sessionStorage on tab close when active
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (ghostMode) {
+        sessionStorage.clear();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [ghostMode]);
+
+  const handleToggleGhostMode = useCallback(() => {
+    setGhostMode((prev) => {
+      const next = !prev;
+      if (next) {
+        toast("🔥 Ghost Mode ON — browsing privately", {
+          style: { background: "#fff7f3", borderLeft: "4px solid #FF6B35" },
+        });
+      } else {
+        sessionStorage.clear();
+        toast("Ghost Mode OFF — session data cleared");
+      }
+      return next;
+    });
+  }, []);
 
   const executeInAppSearch = useCallback(
     async (query: string): Promise<boolean> => {
@@ -245,6 +278,22 @@ function BrowserApp() {
     );
   }, [activeTabId]);
 
+  const handleToggleSplitView = useCallback(() => {
+    setSplitViewActive((prev) => {
+      const next = !prev;
+      if (next && activeTab.url === "") {
+        toast("Load a website first to use Split View");
+        return false;
+      }
+      if (next) {
+        toast("Split View ON");
+      } else {
+        toast("Split View OFF");
+      }
+      return next;
+    });
+  }, [activeTab.url]);
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       <ProgressBar loading={iframeLoading} />
@@ -256,11 +305,31 @@ function BrowserApp() {
         onOpenTabSwitcher={() => setShowTabSwitcher(true)}
         onOpenPocketMenu={() => setShowPocketMenu((v) => !v)}
         onOpenOmnibox={() => setShowOmnibox(true)}
+        ghostMode={ghostMode}
+        onToggleGhostMode={handleToggleGhostMode}
       />
+
+      {/* Ghost Mode banner */}
+      {ghostMode && (
+        <div className="bg-orange-50 border-b border-orange-200 px-3 py-1.5 flex items-center gap-2 z-40">
+          <span className="text-sm">🔥</span>
+          <span className="text-xs font-medium text-orange-600">
+            Ghost Mode — session data only
+          </span>
+        </div>
+      )}
 
       <main className="flex-1 overflow-hidden relative">
         {activeTab.url === "" ? (
           <Dashboard onNavigate={navigateTo} searchInputRef={searchInputRef} />
+        ) : splitViewActive ? (
+          <SplitView
+            topUrl={activeTab.url}
+            onTopBlocked={() => {
+              window.open(activeTab.url, "_blank");
+              goHome();
+            }}
+          />
         ) : (
           <BrowserFrame
             tab={activeTab}
@@ -281,6 +350,8 @@ function BrowserApp() {
         onProfileClick={() => setShowProfile(true)}
         activePage={activePage}
         enableUserProfiles={enableUserProfiles}
+        splitViewActive={splitViewActive}
+        onToggleSplitView={handleToggleSplitView}
       />
 
       {showTabSwitcher && (

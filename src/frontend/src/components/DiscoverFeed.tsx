@@ -1,4 +1,4 @@
-import { Bookmark, Compass, MoreVertical, Share2 } from "lucide-react";
+import { Bookmark, Compass, MoreVertical, Share2, Volume2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
   const removeBookmark = useShortcutsStore((s) => s.removeBookmark);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const items = getPersonalizedDiscover(
@@ -43,6 +44,13 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openMenuId]);
+
+  // Clean up speech on unmount
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const isBookmarked = (url: string) => bookmarks.some((b) => b.url === url);
 
@@ -88,6 +96,29 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
     }
   };
 
+  const handleSpeak = (
+    e: React.MouseEvent,
+    item: ReturnType<typeof getPersonalizedDiscover>[0],
+  ) => {
+    e.stopPropagation();
+    if (speakingId === item.id) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+    // Stop any previous
+    window.speechSynthesis.cancel();
+
+    const text =
+      `${item.title}. ${item.category ? `Category: ${item.category}` : ""}`.trim();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+    setSpeakingId(item.id);
+    window.speechSynthesis.speak(utterance);
+  };
+
   return (
     <div className="w-full mt-4 px-4" data-ocid="discover.section">
       <h2 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1.5">
@@ -98,6 +129,7 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
         <AnimatePresence initial={false}>
           {items.map((item, idx) => {
             const saved = isBookmarked(item.url);
+            const isSpeaking = speakingId === item.id;
             return (
               <motion.div
                 key={item.id}
@@ -183,7 +215,7 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
                     <button
                       type="button"
                       onClick={(e) => handleSave(e, item)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors active:bg-gray-100 rounded-bl-xl"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors active:bg-gray-100 active:scale-95 rounded-bl-xl"
                       style={{ color: saved ? "#1A73E8" : "#6b7280" }}
                     >
                       <Bookmark
@@ -194,20 +226,36 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
                       {saved ? "Saved" : "Save"}
                     </button>
 
-                    {/* Divider */}
                     <div className="w-px h-5 bg-gray-100" />
 
                     {/* Share */}
                     <button
                       type="button"
                       onClick={(e) => handleShare(e, item)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-gray-500 transition-colors active:bg-gray-100"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-gray-500 transition-colors active:bg-gray-100 active:scale-95"
                     >
                       <Share2 size={14} stroke="#6b7280" />
                       Share
                     </button>
 
-                    {/* Divider */}
+                    <div className="w-px h-5 bg-gray-100" />
+
+                    {/* Read / Narrator */}
+                    <button
+                      type="button"
+                      data-ocid={`discover.narrator.toggle.${idx + 1}`}
+                      onClick={(e) => handleSpeak(e, item)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors active:bg-gray-100 active:scale-95"
+                      style={{ color: isSpeaking ? "#1A73E8" : "#6b7280" }}
+                    >
+                      <Volume2
+                        size={14}
+                        stroke={isSpeaking ? "#1A73E8" : "#6b7280"}
+                        className={isSpeaking ? "animate-pulse" : ""}
+                      />
+                      {isSpeaking ? "Stop" : "Read"}
+                    </button>
+
                     <div className="w-px h-5 bg-gray-100" />
 
                     {/* More */}
@@ -220,7 +268,7 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
                             openMenuId === item.id ? null : item.id,
                           );
                         }}
-                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-gray-500 transition-colors active:bg-gray-100 rounded-br-xl"
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-gray-500 transition-colors active:bg-gray-100 active:scale-95 rounded-br-xl"
                       >
                         <MoreVertical size={14} stroke="#6b7280" />
                         More

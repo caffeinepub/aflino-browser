@@ -1,4 +1,4 @@
-import { Bookmark, Home, Search, User } from "lucide-react";
+import { Bookmark, Columns, Home, Search, User } from "lucide-react";
 
 interface FooterNavProps {
   onHome: () => void;
@@ -7,6 +7,8 @@ interface FooterNavProps {
   onProfileClick: () => void;
   activePage: "home" | "search" | "bookmarks" | "profile" | "other";
   enableUserProfiles?: boolean;
+  splitViewActive?: boolean;
+  onToggleSplitView?: () => void;
 }
 
 export function FooterNav({
@@ -16,6 +18,8 @@ export function FooterNav({
   onProfileClick,
   activePage,
   enableUserProfiles = true,
+  splitViewActive = false,
+  onToggleSplitView,
 }: FooterNavProps) {
   const items = [
     { icon: Home, label: "Home", id: "home", action: onHome },
@@ -68,6 +72,26 @@ export function FooterNav({
             </button>
           );
         })}
+
+        {/* Split View button */}
+        <button
+          type="button"
+          data-ocid="footer.split_view.toggle"
+          onClick={onToggleSplitView}
+          className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-colors duration-200 active:scale-95"
+        >
+          <Columns
+            size={22}
+            style={{ color: splitViewActive ? "#1A73E8" : "#9ca3af" }}
+            strokeWidth={splitViewActive ? 2.5 : 1.8}
+          />
+          <span
+            className="text-[10px] font-medium"
+            style={{ color: splitViewActive ? "#1A73E8" : "#9ca3af" }}
+          >
+            Split
+          </span>
+        </button>
       </nav>
     </footer>
   );

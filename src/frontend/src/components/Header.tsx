@@ -1,4 +1,4 @@
-import { Globe, MoreVertical, Plus, ShieldCheck } from "lucide-react";
+import { Flame, Globe, MoreVertical, Plus, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import type { Tab } from "../App";
@@ -14,6 +14,8 @@ interface HeaderProps {
   onOpenTabSwitcher: () => void;
   onOpenPocketMenu: () => void;
   onOpenOmnibox: () => void;
+  ghostMode?: boolean;
+  onToggleGhostMode?: () => void;
 }
 
 function extractDomain(url: string): string {
@@ -33,6 +35,8 @@ export function Header({
   onOpenTabSwitcher,
   onOpenPocketMenu,
   onOpenOmnibox,
+  ghostMode = false,
+  onToggleGhostMode,
 }: HeaderProps) {
   const [showLangModal, setShowLangModal] = useState(false);
   const { selectedCode, landmarkIcons } = useLanguageStore();
@@ -44,6 +48,34 @@ export function Header({
 
   const isWebsiteView =
     activeTab.url !== "" && activeTab.url !== "aflino://newtab";
+
+  const FlameButton = (
+    <button
+      type="button"
+      data-ocid="header.ghost_mode.toggle"
+      onClick={onToggleGhostMode}
+      className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
+      style={{
+        background: ghostMode ? "rgba(255,107,53,0.12)" : "transparent",
+      }}
+      title={
+        ghostMode
+          ? "Ghost Mode ON — tap to disable"
+          : "Ghost Mode — browse privately"
+      }
+    >
+      <Flame
+        size={16}
+        style={{
+          color: ghostMode ? "#FF6B35" : "#9ca3af",
+          filter: ghostMode
+            ? "drop-shadow(0 0 6px rgba(255,107,53,0.8))"
+            : "none",
+          transition: "color 0.3s, filter 0.3s",
+        }}
+      />
+    </button>
+  );
 
   const GlobeButton = (
     <button
@@ -98,7 +130,9 @@ export function Header({
         data-ocid="header.panel"
         className="sticky top-0 z-50 bg-white h-14"
         style={{
-          boxShadow: "0 1px 6px rgba(0,0,0,0.08), 0 0.5px 2px rgba(0,0,0,0.04)",
+          boxShadow: ghostMode
+            ? "0 1px 6px rgba(255,107,53,0.15), 0 0.5px 2px rgba(255,107,53,0.08)"
+            : "0 1px 6px rgba(0,0,0,0.08), 0 0.5px 2px rgba(0,0,0,0.04)",
         }}
       >
         <div className="flex items-center h-full px-3 gap-2">
@@ -119,8 +153,12 @@ export function Header({
                   onClick={onOpenOmnibox}
                   className="flex-1 flex items-center gap-2.5 bg-white rounded-full px-4 py-2 min-w-0 text-left cursor-pointer hover:shadow-md transition-shadow"
                   style={{
-                    border: `1.5px solid ${AFLINO_BLUE}`,
-                    boxShadow: "0 0 0 3px rgba(26,115,232,0.08)",
+                    border: ghostMode
+                      ? "1.5px solid #FF6B35"
+                      : `1.5px solid ${AFLINO_BLUE}`,
+                    boxShadow: ghostMode
+                      ? "0 0 0 3px rgba(255,107,53,0.08)"
+                      : "0 0 0 3px rgba(26,115,232,0.08)",
                   }}
                 >
                   <ShieldCheck
@@ -150,6 +188,7 @@ export function Header({
                   >
                     <Plus size={22} />
                   </button>
+                  {FlameButton}
                   {GlobeButton}
                   {TabCounter}
                   {MenuButton}
@@ -193,6 +232,7 @@ export function Header({
                   >
                     A
                   </div>
+                  {FlameButton}
                   {GlobeButton}
                   {TabCounter}
                   {MenuButton}
