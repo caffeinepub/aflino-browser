@@ -1,20 +1,5 @@
-import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { Eye, EyeOff, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   type Shortcut,
   type ShortcutCategory,
@@ -22,50 +7,61 @@ import {
 } from "../../useShortcutsStore";
 import { ShortcutFormModal } from "./ShortcutFormModal";
 
-interface SortableItemProps {
+function arrayMove<T>(arr: T[], from: number, to: number): T[] {
+  const result = [...arr];
+  const [item] = result.splice(from, 1);
+  result.splice(to, 0, item);
+  return result;
+}
+
+interface DraggableItemProps {
   shortcut: Shortcut;
   index: number;
   onEdit: (s: Shortcut) => void;
   onDelete: (id: string) => void;
+  onDragStart: (index: number) => void;
+  onDragOver: (index: number) => void;
+  onDrop: () => void;
+  isDraggingOver: boolean;
 }
 
-function SortableItem({
+function DraggableItem({
   shortcut,
   index,
   onEdit,
   onDelete,
-}: SortableItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: shortcut.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDraggingOver,
+}: DraggableItemProps) {
   const isImageUrl =
     shortcut.icon.startsWith("http") || shortcut.icon.startsWith("/");
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
       data-ocid={`admin.shortcut.item.${index}`}
-      className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl px-3 py-2.5 shadow-sm hover:shadow-md transition-shadow"
+      draggable
+      onDragStart={() => onDragStart(index - 1)}
+      onDragOver={(e) => {
+        e.preventDefault();
+        onDragOver(index - 1);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDrop();
+      }}
+      className={[
+        "flex items-center gap-3 bg-white border rounded-xl px-3 py-2.5 shadow-sm transition-all",
+        isDraggingOver
+          ? "border-blue-400 bg-blue-50 shadow-md"
+          : "border-gray-100 hover:shadow-md",
+      ].join(" ")}
     >
       {/* Drag handle */}
       <button
         type="button"
         data-ocid="admin.shortcut.drag_handle"
-        {...attributes}
-        {...listeners}
         className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
         aria-label="Drag to reorder"
       >
@@ -147,28 +143,33 @@ function ShortcutSection({ category, items }: SectionProps) {
   const [editTarget, setEditTarget] = useState<Shortcut | undefined>();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
+  const [dragFromIndex, setDragFromIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const dragEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor));
   const title = categoryTitles[category];
   const visible = categoryVisibility[category];
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = items.findIndex((s) => s.id === active.id);
-    const newIndex = items.findIndex((s) => s.id === over.id);
-    const reordered = arrayMove(items, oldIndex, newIndex);
-    reorderShortcuts(
-      category,
-      reordered.map((s) => s.id),
-    );
+  const handleDrop = () => {
+    if (
+      dragFromIndex !== null &&
+      dragOverIndex !== null &&
+      dragFromIndex !== dragOverIndex
+    ) {
+      const reordered = arrayMove(items, dragFromIndex, dragOverIndex);
+      reorderShortcuts(
+        category,
+        reordered.map((s) => s.id),
+      );
+    }
+    setDragFromIndex(null);
+    setDragOverIndex(null);
   };
 
   const openAdd = () => {
     setEditTarget(undefined);
     setModalOpen(true);
   };
-
   const openEdit = (s: Shortcut) => {
     setEditTarget(s);
     setModalOpen(true);
@@ -186,11 +187,18 @@ function ShortcutSection({ category, items }: SectionProps) {
     setTitleDraft(title);
     setEditingTitle(true);
   };
-
   const commitTitleEdit = () => {
     const trimmed = titleDraft.trim();
     if (trimmed) setCategoryTitle(category, trimmed);
     setEditingTitle(false);
+  };
+
+  // Clear drag state if drag ends outside a drop target
+  const handleDragEnd = () => {
+    dragEndTimer.current = setTimeout(() => {
+      setDragFromIndex(null);
+      setDragOverIndex(null);
+    }, 50);
   };
 
   return (
@@ -198,7 +206,6 @@ function ShortcutSection({ category, items }: SectionProps) {
       {/* Section header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          {/* Inline title edit */}
           {editingTitle ? (
             <input
               type="text"
@@ -235,7 +242,6 @@ function ShortcutSection({ category, items }: SectionProps) {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          {/* Visibility toggle */}
           <button
             type="button"
             data-ocid={`admin.${category}.toggle`}
@@ -264,7 +270,7 @@ function ShortcutSection({ category, items }: SectionProps) {
         </div>
       </div>
 
-      {/* DnD List */}
+      {/* Drag-and-drop list */}
       <div className="p-4">
         {!visible && (
           <div className="mb-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-400 flex items-center gap-2">
@@ -281,29 +287,36 @@ function ShortcutSection({ category, items }: SectionProps) {
             <p className="text-sm">No shortcuts yet. Add one!</p>
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={items.map((s) => s.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="flex flex-col gap-2">
-                {items.map((shortcut, i) => (
-                  <SortableItem
-                    key={shortcut.id}
-                    shortcut={shortcut}
-                    index={i + 1}
-                    onEdit={openEdit}
-                    onDelete={(id) => deleteShortcut(category, id)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <div className="flex flex-col gap-2">
+            {items.map((shortcut, i) => (
+              <DraggableItem
+                key={shortcut.id}
+                shortcut={shortcut}
+                index={i + 1}
+                onEdit={openEdit}
+                onDelete={(id) => deleteShortcut(category, id)}
+                onDragStart={(idx) => {
+                  setDragFromIndex(idx);
+                }}
+                onDragOver={(idx) => {
+                  setDragOverIndex(idx);
+                }}
+                onDrop={handleDrop}
+                isDraggingOver={dragOverIndex === i}
+              />
+            ))}
+          </div>
         )}
+        {/* Invisible drop zone to handle drag-end outside items */}
+        <div
+          className="h-1"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleDrop();
+          }}
+          onDragEnd={handleDragEnd}
+        />
       </div>
 
       <ShortcutFormModal

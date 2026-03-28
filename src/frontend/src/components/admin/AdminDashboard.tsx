@@ -4,6 +4,7 @@ import {
   Globe,
   LayoutGrid,
   LogOut,
+  MapPin,
   Menu,
   Palette,
   Settings,
@@ -19,6 +20,8 @@ import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../../useShortcutsStore";
 import type { SearchEngine } from "../../useShortcutsStore";
 import { AdminLogin } from "./AdminLogin";
 import { AnalyticsSection } from "./AnalyticsSection";
+import { DomainPartnersSection } from "./DomainPartnersSection";
+import { GlobalControlsSection } from "./GlobalControlsSection";
 import { ImageCropperModal } from "./ImageCropperModal";
 import { ShortcutsManager } from "./ShortcutsManager";
 import { UserDatabaseSection } from "./UserDatabaseSection";
@@ -29,7 +32,9 @@ type Section =
   | "appearance"
   | "settings"
   | "languages"
-  | "users";
+  | "users"
+  | "wallet"
+  | "globalControls";
 
 const navItems: {
   id: Section;
@@ -46,6 +51,12 @@ const navItems: {
   { id: "languages", label: "Languages", icon: <Globe size={18} /> },
   { id: "appearance", label: "Appearance", icon: <Palette size={18} /> },
   { id: "settings", label: "Settings", icon: <Settings size={18} /> },
+  { id: "wallet", label: "Safe-Guard Wallet", icon: <Shield size={18} /> },
+  {
+    id: "globalControls",
+    label: "Global Controls",
+    icon: <MapPin size={18} />,
+  },
 ];
 
 function Toggle({
@@ -1093,6 +1104,8 @@ export function AdminDashboard() {
           {activeSection === "appearance" && <AppearanceSection />}
           {activeSection === "settings" && <SettingsSection />}
           {activeSection === "users" && <UserDatabaseSection />}
+          {activeSection === "wallet" && <DomainPartnersSection />}
+          {activeSection === "globalControls" && <GlobalControlsSection />}
         </main>
 
         {/* Footer */}

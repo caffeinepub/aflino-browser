@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { BookmarksSheet } from "./components/BookmarksSheet";
 import { BrowserFrame } from "./components/BrowserFrame";
 import { Dashboard } from "./components/Dashboard";
@@ -13,6 +14,7 @@ import { SearchResultsPage } from "./components/SearchResultsPage";
 import { SplashScreen } from "./components/SplashScreen";
 import { TabSwitcher } from "./components/TabSwitcher";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { useGeoDetection } from "./hooks/useGeoDetection";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "./useShortcutsStore";
 import { isPwaMode } from "./utils/pwaUtils";
 
@@ -50,6 +52,7 @@ function extractDomain(url: string): string {
 }
 
 function BrowserApp() {
+  useGeoDetection();
   const [tabs, setTabs] = useState<Tab[]>([makeTab()]);
   const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
   const [showTabSwitcher, setShowTabSwitcher] = useState(false);
@@ -77,7 +80,7 @@ function BrowserApp() {
 
   const hasApiKeys = !!googleSearchApiKey && !!searchEngineCx;
 
-  const [lastVisited, setLastVisited] = useState<{
+  const [_lastVisited, setLastVisited] = useState<{
     url: string;
     title: string;
     favicon: string;
@@ -257,11 +260,7 @@ function BrowserApp() {
 
       <main className="flex-1 overflow-hidden relative">
         {activeTab.url === "" ? (
-          <Dashboard
-            onNavigate={navigateTo}
-            lastVisited={lastVisited}
-            searchInputRef={searchInputRef}
-          />
+          <Dashboard onNavigate={navigateTo} searchInputRef={searchInputRef} />
         ) : (
           <BrowserFrame
             tab={activeTab}
@@ -375,6 +374,15 @@ export default function App() {
       store.recordAppOpen();
     } else {
       store.recordWebVisit();
+    }
+    // Refund expired coupons
+    const refunded = store.refundExpiredCoupons();
+    if (refunded && refunded.length > 0) {
+      for (const c of refunded) {
+        toast.success(
+          `Coupon expired. ₹${c.value} has been added back to your wallet.`,
+        );
+      }
     }
 
     const onInstalled = () => store.recordAppInstall();

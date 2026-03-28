@@ -12,12 +12,14 @@ import {
   Smartphone,
   Trash2,
   User,
+  Wallet,
   X,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { type HistoryEntry, useShortcutsStore } from "../useShortcutsStore";
+import { SafeGuardWallet } from "./SafeGuardWallet";
 
 interface ProfilePageProps {
   onClose: () => void;
@@ -225,7 +227,7 @@ function LoginSignupCard() {
 }
 
 export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "history">(
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "wallet">(
     "overview",
   );
   const [historyQuery, setHistoryQuery] = useState("");
@@ -237,6 +239,10 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
     bookmarks,
     currentUser,
     logoutUser,
+    rewardsEnabled,
+    vpnDetected,
+    detectedCountry,
+    countryConfigs,
   } = useShortcutsStore();
   const { canInstall, isInstalled, triggerInstall } = usePwaInstall();
 
@@ -246,6 +252,12 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
       return () => clearTimeout(t);
     }
   }, [activeTab, historyQuery]);
+
+  useEffect(() => {
+    if (activeTab === "wallet" && !rewardsEnabled) {
+      setActiveTab("overview");
+    }
+  }, [activeTab, rewardsEnabled]);
 
   const quickLinks = [
     {
@@ -392,7 +404,13 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
 
       {/* Tab bar */}
       <div className="flex border-b border-gray-100 px-4">
-        {(["overview", "history"] as const).map((tab) => (
+        {(
+          [
+            "overview",
+            "history",
+            ...(rewardsEnabled ? ["wallet"] : []),
+          ] as Array<"overview" | "history" | "wallet">
+        ).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -407,12 +425,40 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
                   : "2px solid transparent",
             }}
           >
-            {tab}
+            <span className="flex items-center justify-center gap-1">
+              {tab === "wallet" && <Wallet size={13} />}
+              {tab === "history" && <Clock size={13} />}
+              {tab === "overview" && <User size={13} />}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </span>
           </button>
         ))}
       </div>
 
-      {activeTab === "overview" ? (
+      {/* Geo Status Banner */}
+      {!rewardsEnabled && (
+        <div
+          className={`mx-4 mt-3 rounded-xl px-4 py-3 text-sm ${vpnDetected ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-blue-50 border border-blue-100 text-blue-700"}`}
+          data-ocid="profile.panel"
+        >
+          {vpnDetected
+            ? "⚠️ VPN/proxy detected. Rewards are paused for this session."
+            : (() => {
+                const cfg = countryConfigs.find(
+                  (c) => c.countryCode === detectedCountry,
+                );
+                return cfg
+                  ? `Rewards are not available in ${cfg.flag} ${cfg.name}.`
+                  : "Rewards are not available in your region.";
+              })()}
+        </div>
+      )}
+
+      {activeTab === "wallet" ? (
+        <div className="flex-1 overflow-y-auto">
+          <SafeGuardWallet />
+        </div>
+      ) : activeTab === "overview" ? (
         <div className="flex-1 overflow-y-auto">
           {!currentUser ? (
             // ─── NOT LOGGED IN ───

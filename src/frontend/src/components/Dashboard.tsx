@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "../i18n/useTranslation";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
+import { DiscoverFeed } from "./DiscoverFeed";
+import { JumpBackSection } from "./JumpBackSection";
 import { SearchResultsPage } from "./SearchResultsPage";
+import { StoriesSection } from "./StoriesSection";
 
 // SpeechRecognition cross-browser types
 interface ISpeechRecognition extends EventTarget {
@@ -298,15 +301,10 @@ function ListeningOverlay({ onStop }: { onStop: () => void }) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 interface DashboardProps {
   onNavigate: (url: string) => void;
-  lastVisited?: { url: string; title: string; favicon: string } | null;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-export function Dashboard({
-  onNavigate,
-  lastVisited,
-  searchInputRef,
-}: DashboardProps) {
+export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
   const [searchVal, setSearchVal] = useState("");
   const [listening, setListening] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -346,7 +344,33 @@ export function Dashboard({
   const customAffiliateId = useShortcutsStore((s) => s.customAffiliateId);
   const inAppSearchEnabled = useShortcutsStore((s) => s.inAppSearchEnabled);
   const incrementSearchCount = useShortcutsStore((s) => s.incrementSearchCount);
+  const recordJumpBack = useShortcutsStore((s) => s.recordJumpBack);
+  const extractAndStoreKeywords = useShortcutsStore(
+    (s) => s.extractAndStoreKeywords,
+  );
+  const recordVisitFrequency = useShortcutsStore((s) => s.recordVisitFrequency);
   const t = useTranslation();
+
+  // Wrap onNavigate to track visits
+  const handleNavigate = (url: string) => {
+    try {
+      const domain = new URL(
+        url.startsWith("http") ? url : `https://${url}`,
+      ).hostname.replace("www.", "");
+      const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+      const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+      recordJumpBack({
+        url: fullUrl,
+        title: domain,
+        favicon,
+        visitedAt: Date.now(),
+      });
+      recordVisitFrequency(fullUrl, domain, favicon);
+    } catch {
+      /* ignore invalid URLs */
+    }
+    onNavigate(url);
+  };
 
   useEffect(() => {
     const adminUrl = `${window.location.origin}/admin`;
@@ -359,6 +383,8 @@ export function Dashboard({
   const executeSearch = async (query?: string) => {
     const q = (query ?? searchVal).trim();
     if (!q) return;
+    // Track search keywords for personalization
+    extractAndStoreKeywords(q);
     incrementSearchCount();
 
     // In-app search: only supported for Google (Custom Search API)
@@ -597,7 +623,7 @@ export function Dashboard({
                   key={key}
                   label={categoryTitles[key]}
                   items={items}
-                  onNavigate={onNavigate}
+                  onNavigate={handleNavigate}
                   gradientFrom={gradientFrom}
                   gradientTo={gradientTo}
                 />
@@ -605,39 +631,14 @@ export function Dashboard({
           )}
         </div>
 
-        {/* Jump Back In */}
-        {lastVisited && (
-          <div className="w-full mt-2" data-ocid="dashboard.section">
-            <h2 className="text-sm font-bold text-gray-800 mb-2">
-              {t.jumpBackIn}
-            </h2>
-            <button
-              type="button"
-              data-ocid="dashboard.primary_button"
-              onClick={() => onNavigate(lastVisited.url)}
-              className="w-full flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm border border-gray-100 active:scale-[0.99] transition-transform duration-150"
-            >
-              <div className="w-12 h-12 rounded-xl flex-shrink-0 overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center">
-                <img
-                  src={lastVisited.favicon}
-                  alt=""
-                  className="w-8 h-8 object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              </div>
-              <div className="flex flex-col items-start min-w-0">
-                <span className="text-base font-bold text-gray-900 truncate w-full">
-                  {lastVisited.title}
-                </span>
-                <span className="text-xs text-gray-400 truncate w-full">
-                  {lastVisited.url.replace(/^https?:\/\//, "")}
-                </span>
-              </div>
-            </button>
-          </div>
-        )}
+        {/* Jump Back Section */}
+        <JumpBackSection onNavigate={handleNavigate} />
+
+        {/* Aflino Stories */}
+        <StoriesSection onNavigate={handleNavigate} />
+
+        {/* Discover Feed */}
+        <DiscoverFeed onNavigate={handleNavigate} />
 
         {/* Footer */}
         <div className="pt-4 text-center flex flex-col items-center gap-2">

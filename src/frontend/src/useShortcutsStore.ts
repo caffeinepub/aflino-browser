@@ -16,6 +16,9 @@ export type Bookmark = {
   name: string;
   url: string;
   favicon: string;
+  imageUrl?: string;
+  source?: string;
+  savedAt?: number;
 };
 
 export type HistoryEntry = {
@@ -44,6 +47,22 @@ export type SearchHistoryLogEntry = {
   userType: "Guest" | "Logged-in";
 };
 
+export type JumpBackSite = {
+  id: string;
+  url: string;
+  title: string;
+  favicon: string;
+  visitedAt: number;
+};
+
+export type VisitRecord = {
+  url: string;
+  count: number;
+  lastVisit: number;
+  category: string;
+  title: string;
+  favicon: string;
+};
 export type ShortcutCategory =
   | "aflinoApps"
   | "globalBrands"
@@ -76,6 +95,123 @@ export interface MultiEngineApiConfig {
   customAffiliateId: string;
   inAppSearchEnabled: boolean;
 }
+
+export type CouponStatus = "ACTIVE" | "USED" | "EXPIRED" | "REFUNDED";
+
+export type Coupon = {
+  id: string;
+  code: string;
+  ownerEmail: string;
+  createdAt: number;
+  valid_until: number;
+  status: CouponStatus;
+  value: number;
+  usedAt?: number;
+  usedAtDomain?: string;
+  orderId?: string;
+};
+
+export type CountryConfig = {
+  countryCode: string;
+  name: string;
+  flag: string;
+  currencySymbol: string;
+  coinValue: number;
+  minRedemption: number;
+  status: boolean;
+};
+
+export const DEFAULT_COUNTRY_CONFIGS: CountryConfig[] = [
+  {
+    countryCode: "IN",
+    name: "India",
+    flag: "🇮🇳",
+    currencySymbol: "₹",
+    coinValue: 1,
+    minRedemption: 10,
+    status: true,
+  },
+  {
+    countryCode: "BD",
+    name: "Bangladesh",
+    flag: "🇧🇩",
+    currencySymbol: "৳",
+    coinValue: 1,
+    minRedemption: 10,
+    status: true,
+  },
+  {
+    countryCode: "AE",
+    name: "UAE",
+    flag: "🇦🇪",
+    currencySymbol: "د.إ",
+    coinValue: 0.5,
+    minRedemption: 5,
+    status: true,
+  },
+  {
+    countryCode: "US",
+    name: "USA",
+    flag: "🇺🇸",
+    currencySymbol: "$",
+    coinValue: 0.01,
+    minRedemption: 100,
+    status: false,
+  },
+  {
+    countryCode: "GB",
+    name: "UK",
+    flag: "🇬🇧",
+    currencySymbol: "£",
+    coinValue: 0.01,
+    minRedemption: 100,
+    status: false,
+  },
+  {
+    countryCode: "PK",
+    name: "Pakistan",
+    flag: "🇵🇰",
+    currencySymbol: "₨",
+    coinValue: 1,
+    minRedemption: 10,
+    status: true,
+  },
+  {
+    countryCode: "SA",
+    name: "Saudi Arabia",
+    flag: "🇸🇦",
+    currencySymbol: "﷼",
+    coinValue: 0.5,
+    minRedemption: 5,
+    status: true,
+  },
+  {
+    countryCode: "NG",
+    name: "Nigeria",
+    flag: "🇳🇬",
+    currencySymbol: "₦",
+    coinValue: 5,
+    minRedemption: 50,
+    status: false,
+  },
+  {
+    countryCode: "OTHER",
+    name: "Global / Other",
+    flag: "🌍",
+    currencySymbol: "$",
+    coinValue: 0.01,
+    minRedemption: 100,
+    status: false,
+  },
+];
+
+export type DomainPartner = {
+  id: string;
+  title: string;
+  url: string;
+  apiKey: string;
+  countryCodes?: string[];
+};
 
 interface ShortcutsState extends MultiEngineApiConfig {
   // Shortcuts
@@ -120,6 +256,49 @@ interface ShortcutsState extends MultiEngineApiConfig {
   appDailyClicks: number;
   webVisitorsTotal: number;
   searchHistoryLog: SearchHistoryLogEntry[];
+  // Personalization
+  jumpBackSites: JumpBackSite[];
+  searchKeywords: Record<string, number>;
+  visitFrequency: Record<string, VisitRecord>;
+  dismissedItemIds: string[];
+  blockedSources: string[];
+  blockedKeywordsUntil: Record<string, number>;
+  // Wallet
+  walletBalance: number;
+  coupons: Coupon[];
+  domainPartners: DomainPartner[];
+  // Geo
+  countryConfigs: CountryConfig[];
+  detectedCountry: string | null;
+  vpnDetected: boolean;
+  rewardsEnabled: boolean;
+  // Geo actions
+  setCountryConfigs: (configs: CountryConfig[]) => void;
+  updateCountryConfig: (
+    countryCode: string,
+    updates: Partial<CountryConfig>,
+  ) => void;
+  setGeoResult: (countryCode: string, vpnDetected: boolean) => void;
+
+  // Wallet actions
+  generateCoupon: (value: number) => Coupon | null;
+  revealCoupon: (
+    couponId: string,
+    password: string,
+  ) => { success: boolean; code?: string; error?: string };
+  validateCoupon: (
+    code: string,
+    requestingEmail: string,
+  ) => { valid: boolean; coupon?: Coupon; error?: string };
+  markCouponUsed: (code: string, domain: string, orderId: string) => void;
+  refundExpiredCoupons: () => Coupon[];
+  addDomainPartner: (partner: Omit<DomainPartner, "id">) => void;
+  updateDomainPartner: (
+    id: string,
+    updates: Partial<Omit<DomainPartner, "id">>,
+  ) => void;
+  deleteDomainPartner: (id: string) => void;
+  addWalletBalance: (amount: number) => void;
 
   // Shortcut actions
   addShortcut: (
@@ -186,6 +365,13 @@ interface ShortcutsState extends MultiEngineApiConfig {
   ) => void;
   recordAppInstall: () => void;
   incrementAppDailyClicks: () => void;
+  // Personalization actions
+  recordJumpBack: (site: Omit<JumpBackSite, "id">) => void;
+  extractAndStoreKeywords: (query: string) => void;
+  recordVisitFrequency: (url: string, title: string, favicon: string) => void;
+  dismissDiscoverItem: (id: string) => void;
+  blockSource: (source: string) => void;
+  blockKeywordCategory: (keywordOrCategory: string) => void;
 }
 
 export const useShortcutsStore = create<ShortcutsState>()(
@@ -256,6 +442,35 @@ export const useShortcutsStore = create<ShortcutsState>()(
       appDailyClicks: 0,
       webVisitorsTotal: 0,
       searchHistoryLog: [],
+      // Personalization
+      jumpBackSites: [],
+      searchKeywords: {},
+      visitFrequency: {},
+      dismissedItemIds: [],
+      blockedSources: [],
+      blockedKeywordsUntil: {},
+      // Wallet
+      walletBalance: 500,
+      coupons: [],
+      domainPartners: [
+        {
+          id: "1",
+          title: "Aflino Shop",
+          url: "https://shop.aflino.com",
+          apiKey: "",
+        },
+        {
+          id: "2",
+          title: "Partner Store",
+          url: "https://partner.example.com",
+          apiKey: "",
+        },
+      ],
+      // Geo
+      countryConfigs: DEFAULT_COUNTRY_CONFIGS,
+      detectedCountry: null,
+      vpnDetected: false,
+      rewardsEnabled: true,
 
       // Shortcut actions
       addShortcut: (category, shortcut) =>
@@ -466,6 +681,318 @@ export const useShortcutsStore = create<ShortcutsState>()(
         set((state) => ({ appInstalls: state.appInstalls + 1 })),
       incrementAppDailyClicks: () =>
         set((state) => ({ appDailyClicks: state.appDailyClicks + 1 })),
+      // Personalization actions
+      recordJumpBack: (site) =>
+        set((state) => {
+          const filtered = state.jumpBackSites.filter(
+            (s) => s.url !== site.url,
+          );
+          const newEntry: JumpBackSite = { ...site, id: String(Date.now()) };
+          return { jumpBackSites: [newEntry, ...filtered].slice(0, 7) };
+        }),
+      extractAndStoreKeywords: (query) =>
+        set((state) => {
+          const stopwords = new Set([
+            "the",
+            "a",
+            "an",
+            "is",
+            "in",
+            "on",
+            "at",
+            "to",
+            "of",
+            "for",
+            "with",
+            "and",
+            "or",
+            "but",
+            "it",
+            "this",
+            "that",
+            "are",
+            "was",
+            "be",
+            "have",
+            "has",
+            "had",
+            "do",
+            "did",
+            "not",
+            "from",
+            "by",
+            "as",
+            "up",
+            "about",
+            "into",
+            "through",
+            "during",
+            "before",
+            "after",
+            "above",
+            "below",
+            "between",
+            "out",
+            "off",
+            "over",
+            "under",
+            "again",
+            "then",
+            "once",
+            "here",
+            "there",
+            "when",
+            "where",
+            "why",
+            "how",
+            "all",
+            "both",
+            "each",
+            "few",
+            "more",
+            "most",
+            "other",
+            "some",
+            "such",
+            "no",
+            "nor",
+            "so",
+            "yet",
+            "either",
+            "neither",
+            "than",
+            "too",
+            "very",
+            "just",
+            "because",
+            "its",
+            "our",
+            "your",
+            "their",
+            "him",
+            "her",
+            "his",
+            "my",
+            "we",
+            "us",
+            "they",
+            "she",
+            "he",
+            "you",
+            "i",
+            "me",
+          ]);
+          const keywords = query
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, " ")
+            .split(/\s+/)
+            .filter((w) => w.length > 2 && !stopwords.has(w));
+          const updated = { ...state.searchKeywords };
+          for (const kw of keywords) {
+            updated[kw] = (updated[kw] ?? 0) + 1;
+          }
+          return { searchKeywords: updated };
+        }),
+      recordVisitFrequency: (url, title, favicon) =>
+        set((state) => {
+          let category = "general";
+          try {
+            const domain = new URL(url).hostname.replace("www.", "");
+            if (/google|bing|yahoo|duckduckgo|search/.test(domain))
+              category = "search";
+            else if (/youtube|netflix|twitch|spotify|hulu/.test(domain))
+              category = "entertainment";
+            else if (
+              /twitter|instagram|facebook|tiktok|snapchat|linkedin/.test(domain)
+            )
+              category = "social";
+            else if (
+              /cnn|bbc|reuters|nytimes|news|aljazeera|guardian/.test(domain)
+            )
+              category = "news";
+            else if (
+              /github|stackoverflow|dev\.to|medium|hashnode/.test(domain)
+            )
+              category = "tech";
+            else if (/cricinfo|espn|sports|cricket|football/.test(domain))
+              category = "sports";
+            else if (/amazon|flipkart|ebay|shop/.test(domain))
+              category = "shopping";
+          } catch {
+            /* ignore */
+          }
+          const existing = state.visitFrequency[url];
+          const updated = {
+            ...state.visitFrequency,
+            [url]: {
+              url,
+              title,
+              favicon,
+              category,
+              count: (existing?.count ?? 0) + 1,
+              lastVisit: Date.now(),
+            },
+          };
+          return { visitFrequency: updated };
+        }),
+      dismissDiscoverItem: (id) =>
+        set((state) => ({
+          dismissedItemIds: [...state.dismissedItemIds, id],
+        })),
+      blockSource: (source) =>
+        set((state) => ({
+          blockedSources: [...state.blockedSources, source],
+        })),
+
+      generateCoupon: (value) => {
+        const state = get();
+        if (!state.currentUser) return null;
+        if (state.walletBalance < value) return null;
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        const seg = () =>
+          Array.from(
+            { length: 4 },
+            () => chars[Math.floor(Math.random() * chars.length)],
+          ).join("");
+        const code = `${seg()}-${seg()}-${seg()}`;
+        const now = Date.now();
+        const coupon: Coupon = {
+          id: String(now),
+          code,
+          ownerEmail: state.currentUser.email,
+          createdAt: now,
+          valid_until: now + 7 * 24 * 60 * 60 * 1000,
+          status: "ACTIVE",
+          value,
+        };
+        set((s) => ({
+          coupons: [coupon, ...s.coupons],
+          walletBalance: s.walletBalance - value,
+        }));
+        return coupon;
+      },
+      revealCoupon: (couponId, password) => {
+        const state = get();
+        if (!state.currentUser)
+          return { success: false, error: "Not logged in" };
+        const user = state.registeredUsers.find(
+          (u) => u.id === state.currentUser!.id,
+        );
+        if (!user) return { success: false, error: "User not found" };
+        if (user.passwordHash !== btoa(password))
+          return { success: false, error: "Incorrect password" };
+        const coupon = state.coupons.find((c) => c.id === couponId);
+        if (!coupon) return { success: false, error: "Coupon not found" };
+        return { success: true, code: coupon.code };
+      },
+      validateCoupon: (code, requestingEmail) => {
+        const state = get();
+        const coupon = state.coupons.find((c) => c.code === code);
+        if (!coupon) return { valid: false, error: "Coupon not found." };
+        if (coupon.ownerEmail.toLowerCase() !== requestingEmail.toLowerCase()) {
+          return {
+            valid: false,
+            error: "Error: Email mismatch. Login with your browser account.",
+          };
+        }
+        if (coupon.status === "USED") {
+          const usedDate = coupon.usedAt
+            ? new Date(coupon.usedAt).toLocaleDateString()
+            : "Unknown date";
+          return {
+            valid: false,
+            error: `This token was used on ${usedDate} at ${coupon.usedAtDomain || "Unknown"} for Order #${coupon.orderId || "N/A"}.`,
+          };
+        }
+        if (coupon.status === "EXPIRED" || coupon.status === "REFUNDED") {
+          return {
+            valid: false,
+            error: `This coupon has already been ${coupon.status.toLowerCase()}.`,
+          };
+        }
+        if (Date.now() > coupon.valid_until) {
+          return { valid: false, error: "This coupon has expired." };
+        }
+        return { valid: true, coupon };
+      },
+      markCouponUsed: (code, domain, orderId) => {
+        set((s) => ({
+          coupons: s.coupons.map((c) =>
+            c.code === code
+              ? {
+                  ...c,
+                  status: "USED" as CouponStatus,
+                  usedAt: Date.now(),
+                  usedAtDomain: domain,
+                  orderId,
+                }
+              : c,
+          ),
+        }));
+      },
+      refundExpiredCoupons: () => {
+        const state = get();
+        const now = Date.now();
+        const toRefund = state.coupons.filter(
+          (c) => c.status === "ACTIVE" && now > c.valid_until,
+        );
+        if (toRefund.length === 0) return [];
+        let totalRefund = 0;
+        const updatedCoupons = state.coupons.map((c) => {
+          if (c.status === "ACTIVE" && now > c.valid_until) {
+            totalRefund += c.value;
+            return { ...c, status: "REFUNDED" as CouponStatus };
+          }
+          return c;
+        });
+        set({
+          coupons: updatedCoupons,
+          walletBalance: state.walletBalance + totalRefund,
+        });
+        return toRefund;
+      },
+      addDomainPartner: (partner) =>
+        set((s) => ({
+          domainPartners: [
+            ...s.domainPartners,
+            { ...partner, id: String(Date.now()) },
+          ],
+        })),
+      updateDomainPartner: (id, updates) =>
+        set((s) => ({
+          domainPartners: s.domainPartners.map((p) =>
+            p.id === id ? { ...p, ...updates } : p,
+          ),
+        })),
+      deleteDomainPartner: (id) =>
+        set((s) => ({
+          domainPartners: s.domainPartners.filter((p) => p.id !== id),
+        })),
+      addWalletBalance: (amount) =>
+        set((s) => ({ walletBalance: s.walletBalance + amount })),
+      // Geo
+      setCountryConfigs: (configs) => set({ countryConfigs: configs }),
+      updateCountryConfig: (countryCode, updates) =>
+        set((s) => ({
+          countryConfigs: s.countryConfigs.map((c) =>
+            c.countryCode === countryCode ? { ...c, ...updates } : c,
+          ),
+        })),
+      setGeoResult: (countryCode, vpnDetected) =>
+        set((s) => {
+          const config =
+            s.countryConfigs.find((c) => c.countryCode === countryCode) ??
+            s.countryConfigs.find((c) => c.countryCode === "OTHER");
+          const rewardsEnabled = !vpnDetected && (config?.status ?? false);
+          return { detectedCountry: countryCode, vpnDetected, rewardsEnabled };
+        }),
+      blockKeywordCategory: (key) =>
+        set((state) => ({
+          blockedKeywordsUntil: {
+            ...state.blockedKeywordsUntil,
+            [key.toLowerCase()]: Date.now() + 24 * 60 * 60 * 1000,
+          },
+        })),
     }),
     { name: "aflino_shortcuts" },
   ),
