@@ -6,6 +6,7 @@ import { BookmarksSheet } from "./components/BookmarksSheet";
 import { BrowserFrame } from "./components/BrowserFrame";
 import { ClipboardPanel } from "./components/ClipboardPanel";
 import { Dashboard } from "./components/Dashboard";
+import { FloatingMediaHub } from "./components/FloatingMediaHub";
 import { FooterNav } from "./components/FooterNav";
 import { Header } from "./components/Header";
 import { OmniboxOverlay } from "./components/OmniboxOverlay";
@@ -16,6 +17,7 @@ import { SearchResultsPage } from "./components/SearchResultsPage";
 import { SplashScreen } from "./components/SplashScreen";
 import { SplitView } from "./components/SplitView";
 import { TabSwitcher } from "./components/TabSwitcher";
+import { ZenReaderOverlay } from "./components/ZenReaderOverlay";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { useGeoDetection } from "./hooks/useGeoDetection";
 import { useEfficiencyStore } from "./useShortcutsStore";
@@ -102,6 +104,12 @@ function BrowserApp() {
 
   // Split View
   const [splitViewActive, setSplitViewActive] = useState(false);
+
+  // Zen Reader
+  const [zenModeActive, setZenModeActive] = useState(false);
+
+  // Media Hub
+  const [mediaHubVisible, setMediaHubVisible] = useState(false);
 
   const {
     bookmarks,
@@ -371,6 +379,10 @@ function BrowserApp() {
         onToggleGhostMode={handleToggleGhostMode}
         dataSaver={dataSaver}
         onToggleDataSaver={handleToggleDataSaver}
+        zenModeActive={zenModeActive}
+        onToggleZenMode={() => setZenModeActive((v) => !v)}
+        mediaHubVisible={mediaHubVisible}
+        onToggleMediaHub={() => setMediaHubVisible((v) => !v)}
       />
 
       {/* Ghost Mode banner */}
@@ -422,6 +434,21 @@ function BrowserApp() {
       {/* Magic Clipboard floating trigger */}
       <ClipboardFloatingButton />
       <ClipboardPanel />
+
+      {/* Zen Reader Mode */}
+      <AnimatePresence>
+        {zenModeActive && activeTab.url.startsWith("http") && (
+          <ZenReaderOverlay
+            url={activeTab.url}
+            onClose={() => setZenModeActive(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Floating Media Hub */}
+      {mediaHubVisible && (
+        <FloatingMediaHub onClose={() => setMediaHubVisible(false)} />
+      )}
 
       {showTabSwitcher && (
         <TabSwitcher

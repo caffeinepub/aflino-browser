@@ -8,6 +8,7 @@ import {
   Leaf,
   LogOut,
   Mail,
+  QrCode,
   Search,
   Shield,
   Smartphone,
@@ -16,11 +17,12 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useEfficiencyStore } from "../useShortcutsStore";
 import { type HistoryEntry, useShortcutsStore } from "../useShortcutsStore";
+import { QRSyncPanel } from "./QRSyncPanel";
 import { SafeGuardWallet } from "./SafeGuardWallet";
 
 interface ProfilePageProps {
@@ -274,6 +276,7 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
     "overview",
   );
   const [historyQuery, setHistoryQuery] = useState("");
+  const [showQRSync, setShowQRSync] = useState(false);
   const historySearchRef = useRef<HTMLInputElement>(null);
   const {
     history,
@@ -712,6 +715,37 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
                 <BandwidthCounter />
               </div>
 
+              {/* QR Sync */}
+              <div className="px-4 pb-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+                  Device Sync
+                </p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <button
+                    type="button"
+                    data-ocid="profile.qr_sync.button"
+                    onClick={() => setShowQRSync(true)}
+                    className="w-full flex items-center gap-3 px-4 py-4 active:bg-gray-50 transition-colors"
+                  >
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: "rgba(26,115,232,0.10)" }}
+                    >
+                      <QrCode size={18} style={{ color: "#1A73E8" }} />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-semibold text-gray-800">
+                        Sync to Device
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Export your settings as a QR code
+                      </p>
+                    </div>
+                    <span className="text-gray-300 text-sm">›</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Quick Links */}
               <div className="px-4 pb-8">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
@@ -863,6 +897,11 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
           </div>
         </div>
       )}
+
+      {/* QR Sync Modal */}
+      <AnimatePresence>
+        {showQRSync && <QRSyncPanel onClose={() => setShowQRSync(false)} />}
+      </AnimatePresence>
     </motion.div>
   );
 }

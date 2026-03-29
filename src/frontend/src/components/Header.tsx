@@ -1,8 +1,10 @@
 import {
+  BookOpen,
   Flame,
   Globe,
   Leaf,
   MoreVertical,
+  Music,
   Plus,
   ShieldCheck,
 } from "lucide-react";
@@ -26,6 +28,10 @@ interface HeaderProps {
   onToggleGhostMode?: () => void;
   dataSaver?: boolean;
   onToggleDataSaver?: () => void;
+  zenModeActive?: boolean;
+  onToggleZenMode?: () => void;
+  mediaHubVisible?: boolean;
+  onToggleMediaHub?: () => void;
 }
 
 function extractDomain(url: string): string {
@@ -49,6 +55,10 @@ export function Header({
   onToggleGhostMode,
   dataSaver = false,
   onToggleDataSaver,
+  zenModeActive = false,
+  onToggleZenMode,
+  mediaHubVisible = false,
+  onToggleMediaHub,
 }: HeaderProps) {
   const [showLangModal, setShowLangModal] = useState(false);
   const { selectedCode, landmarkIcons } = useLanguageStore();
@@ -281,6 +291,44 @@ export function Header({
                   >
                     <Plus size={22} />
                   </button>
+                  {/* Zen Reader Mode */}
+                  <button
+                    type="button"
+                    data-ocid="header.zen_mode.toggle"
+                    onClick={onToggleZenMode}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
+                    style={{
+                      background: zenModeActive
+                        ? "rgba(26,115,232,0.12)"
+                        : "transparent",
+                    }}
+                    title={zenModeActive ? "Exit Zen Mode" : "Zen Reader Mode"}
+                  >
+                    <BookOpen
+                      size={16}
+                      style={{ color: zenModeActive ? "#1A73E8" : "#6b7280" }}
+                    />
+                  </button>
+                  {/* Media Hub */}
+                  <button
+                    type="button"
+                    data-ocid="header.media_hub.toggle"
+                    onClick={onToggleMediaHub}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
+                    style={{
+                      background: mediaHubVisible
+                        ? "rgba(26,115,232,0.12)"
+                        : "transparent",
+                    }}
+                    title={
+                      mediaHubVisible ? "Close Media Hub" : "Open Media Hub"
+                    }
+                  >
+                    <Music
+                      size={16}
+                      style={{ color: mediaHubVisible ? "#1A73E8" : "#6b7280" }}
+                    />
+                  </button>
                   {FlameButton}
                   {LeafButton}
                   {GlobeButton}
@@ -350,6 +398,44 @@ export function Header({
                   >
                     A
                   </div>
+                  {/* Zen Reader Mode */}
+                  <button
+                    type="button"
+                    data-ocid="header.zen_mode.toggle"
+                    onClick={onToggleZenMode}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
+                    style={{
+                      background: zenModeActive
+                        ? "rgba(26,115,232,0.12)"
+                        : "transparent",
+                    }}
+                    title={zenModeActive ? "Exit Zen Mode" : "Zen Reader Mode"}
+                  >
+                    <BookOpen
+                      size={16}
+                      style={{ color: zenModeActive ? "#1A73E8" : "#6b7280" }}
+                    />
+                  </button>
+                  {/* Media Hub */}
+                  <button
+                    type="button"
+                    data-ocid="header.media_hub.toggle"
+                    onClick={onToggleMediaHub}
+                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
+                    style={{
+                      background: mediaHubVisible
+                        ? "rgba(26,115,232,0.12)"
+                        : "transparent",
+                    }}
+                    title={
+                      mediaHubVisible ? "Close Media Hub" : "Open Media Hub"
+                    }
+                  >
+                    <Music
+                      size={16}
+                      style={{ color: mediaHubVisible ? "#1A73E8" : "#6b7280" }}
+                    />
+                  </button>
                   {FlameButton}
                   {LeafButton}
                   {GlobeButton}

@@ -1,42 +1,48 @@
-# Aflino Browser — v44 Power Update
+# Aflino Browser — v45 Zen Update
 
 ## Current State
-- OCR (Tesseract.js) is in Dashboard.tsx: extracts text, shows in a small bar with a single Copy button
-- OmniboxOverlay.tsx: full-screen search overlay with trending suggestions; no clipboard integration
-- BookmarksSheet.tsx: rich card layout, no vault/locked folder concept
-- useShortcutsStore.ts: has Bookmark type, useEfficiencyStore with clipboardHistory (sessionStorage)
-- No translation, no vault, no smart paste in omnibox
+- v44 is live with OCR/Translate, Smart Paste, App Vault, and the full efficiency suite
+- App.tsx manages tabs, ghostMode, dataSaver, splitView, omnibox, bookmarks, profile
+- BrowserShell/Header shows address bar with ghost mode, data saver icons
+- ProfilePage.tsx has bandwidth counter, vault, login, history
+- useShortcutsStore holds shortcuts, themes, bookmarks; useEfficiencyStore holds clipboard
+- QR code component is now available via the selected `qr-code` Caffeine component
 
 ## Requested Changes (Diff)
 
 ### Add
-1. **Scan-to-Translate** — After OCR extraction, show an expanded result popup (modal/card) with:
-   - Original text on left (or top), translated text on right (or below)
-   - Language selector tabs: Hindi, Bengali, Spanish
-   - Translation via client-side MyMemory free REST API (`https://api.mymemory.translated.net/get?q={text}&langpair=en|{lang}`)
-   - Copy button for both original and translated text
-   - "Translate" button that triggers translation (lazy — only on click)
-2. **Smart Paste in Omnibox** — When OmniboxOverlay opens, show a horizontal scrollable glassmorphic strip above the keyboard showing Magic Clipboard history items; tapping one pastes it into the search field and triggers search immediately
-3. **App Vault (Locked Bookmarks)** — Inside BookmarksSheet:
-   - A hidden "Secure Vault" folder revealed by pull-down gesture (scroll up / swipe-down on the handle area)
-   - Shows Lock icon, tap to open triggers PIN prompt (4-digit PIN modal — WebAuthn not universally supported so fallback to PIN)
-   - PIN set on first use, stored in localStorage
-   - "Move to Vault" option on each regular bookmark (long-press or swipe action / three-dot menu)
-   - Vault bookmarks stored separately in useShortcutsStore as `vaultBookmarks`
-   - Vault is hidden by default, revealed only after pull-down gesture
+1. **ZenReaderOverlay** — new component that renders a distraction-free reading view over a loaded page
+   - Extracts readable text/content from the current URL (fetch + DOM parse via DOMParser, stripping scripts/ads/nav)
+   - Two themes: Sepia (warm paper) and Dark with Georgia/serif typography, comfortable line-height and max-width
+   - Auto-Scroll feature: fixed control bar with Play/Stop and a speed slider (1–10), uses setInterval + scrollBy
+   - Smooth entry animation using Framer Motion (scale + fade, 600ms) as the Lottie-equivalent transition
+2. **Zen Mode Button in Header/Address Bar** — when a URL is loaded (activeTab.url starts with http), show a 📖 book icon button next to the address bar that toggles `zenModeActive` state
+3. **FloatingMediaHub** — new draggable floating bubble component
+   - Appears when `mediaPlaying` state is true (simulated by a toggle or detected via postMessage from iframe)
+   - Bubble shows a music note / play icon, draggable via pointer events, docks to nearest screen edge (left/right)
+   - Tapping opens a mini-controller card (Play, Pause, Skip, Volume, Close, PiP toggle)
+   - PiP (Video-in-Video): calls `element.requestPictureInPicture()` on a video element inside the iframe
+   - Media Hub is triggered via a "🎵 Media" button in the PocketMenu or FooterNav when a URL is loaded
+4. **QR Sync** — in ProfilePage, new "Sync to Device" section
+   - Exports a JSON of shortcuts, themes, language, search engine settings from useShortcutsStore
+   - Encodes with btoa() for light obfuscation ("encryption" label for user trust)
+   - Renders a QR code using the `qr-code` Caffeine component
+   - Import side: a "Scan QR" button opens camera/QR scanner to read and import settings
 
 ### Modify
-- `Dashboard.tsx`: Replace the small OCR result bar with a proper Scan-to-Translate modal popup
-- `OmniboxOverlay.tsx`: Add clipboard history strip with glassmorphism
-- `BookmarksSheet.tsx`: Add vault section (hidden by default, reveal on pull), Move-to-Vault menu, PIN modal
-- `useShortcutsStore.ts`: Add `vaultBookmarks: Bookmark[]`, `vaultPin: string`, and actions `addVaultBookmark`, `removeVaultBookmark`, `setVaultPin`, `moveToVault`
+- **Header.tsx** — add `zenModeActive`, `onToggleZenMode`, `mediaPlaying` props; render 📖 Zen button when URL is loaded; show floating media indicator dot
+- **App.tsx** — add `zenModeActive`, `mediaPlaying` state; render `<ZenReaderOverlay>` and `<FloatingMediaHub>` conditionally; wire Header props
+- **ProfilePage.tsx** — add QR Sync section with export/import via QR code component
+- **FooterNav.tsx** — optionally show media indicator
 
 ### Remove
-- The small inline OCR copy bar (replaced by the full Scan-to-Translate modal)
+- Nothing removed; all existing features preserved
 
 ## Implementation Plan
-1. Update `useShortcutsStore.ts` — add vault types and actions, persist vaultBookmarks and vaultPin
-2. Create `ScanToTranslateModal.tsx` — modal with original text, translate tabs, MyMemory API calls, copy buttons for both
-3. Update `Dashboard.tsx` — replace OCR result bar with ScanToTranslateModal trigger
-4. Update `OmniboxOverlay.tsx` — add glassmorphic clipboard strip when clipboardHistory is non-empty
-5. Update `BookmarksSheet.tsx` — add pull-down reveal for vault, PIN modal, Move-to-Vault option per bookmark
+1. Create `src/frontend/src/components/ZenReaderOverlay.tsx` — full distraction-free reader with sepia/dark themes, auto-scroll control, Framer Motion transition
+2. Create `src/frontend/src/components/FloatingMediaHub.tsx` — draggable bubble with docking logic, mini-controller, PiP support
+3. Create `src/frontend/src/components/QRSyncPanel.tsx` — QR code generator and scanner for settings sync
+4. Update `Header.tsx` to add Zen Mode button when a real URL is active
+5. Update `App.tsx` to wire all three new features into the main app shell
+6. Update `ProfilePage.tsx` to include the QR Sync section
+7. Validate and fix any TypeScript/build errors
