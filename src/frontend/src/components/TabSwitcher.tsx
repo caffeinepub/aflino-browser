@@ -72,29 +72,37 @@ export function TabSwitcher({
                 }`}
                 onClick={() => onSwitch(tab.id)}
               >
+                {/* Hibernated badge */}
+                {tab.hibernated && (
+                  <div className="absolute top-2 right-8 z-10">
+                    <span className="bg-blue-100 text-blue-600 rounded-full px-1.5 py-0.5 text-xs font-semibold">
+                      💤
+                    </span>
+                  </div>
+                )}
                 <div
                   className="h-20 flex items-center justify-center text-3xl"
                   style={{
                     background:
                       tab.url === ""
                         ? "linear-gradient(135deg, #eff6ff, #fdf2f8)"
-                        : "linear-gradient(135deg, #f8fafc, #f1f5f9)",
+                        : tab.hibernated
+                          ? "linear-gradient(135deg, #f0f4ff, #e8eeff)"
+                          : "linear-gradient(135deg, #f8fafc, #f1f5f9)",
                   }}
                 >
-                  {tab.url === "" ? "🏠" : "🌐"}
+                  {tab.url === "" ? "🏠" : tab.hibernated ? "💤" : "🌐"}
                 </div>
-
-                <div className="bg-white px-2.5 py-2">
+                <div className="px-2 py-1.5 bg-white">
                   <p className="text-xs font-semibold text-gray-700 truncate">
-                    {tab.url === "" ? "New Tab" : tab.title}
+                    {tab.title}
                   </p>
-                  {tab.url && (
-                    <p className="text-xs text-gray-400 truncate mt-0.5">
-                      {tab.url.replace(/^https?:\/\//, "")}
+                  {tab.hibernated && (
+                    <p className="text-[10px] text-blue-500 font-medium">
+                      Snoozed
                     </p>
                   )}
                 </div>
-
                 <button
                   type="button"
                   data-ocid={`tabswitcher.delete_button.${idx + 1}`}
@@ -102,14 +110,10 @@ export function TabSwitcher({
                     e.stopPropagation();
                     onClose(tab.id);
                   }}
-                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition-colors"
+                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-gray-800/60 flex items-center justify-center hover:bg-red-500 transition-colors"
                 >
-                  <X size={12} color="white" />
+                  <X size={10} className="text-white" />
                 </button>
-
-                {tab.id === activeTabId && (
-                  <div className="absolute top-2 left-2 w-2 h-2 rounded-full bg-blue-500" />
-                )}
               </motion.div>
             ))}
           </div>

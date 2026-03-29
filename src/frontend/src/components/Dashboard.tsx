@@ -1,4 +1,4 @@
-import { Camera, ClipboardCopy, Mic, ScanText, X } from "lucide-react";
+import { Camera, ClipboardCopy, Mic, Plus, ScanText, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -127,6 +127,107 @@ function CarouselRow({
             </span>
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Smart Speed-Dial Grid ─────────────────────────────────────────────────────
+function SpeedDialGrid({ onNavigate }: { onNavigate: (url: string) => void }) {
+  const visitFrequency = useShortcutsStore((s) => s.visitFrequency);
+
+  const topSites = Object.values(visitFrequency)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  if (topSites.length === 0) return null;
+
+  // Fill up to 8 with placeholders
+  const tiles = [...topSites];
+  while (tiles.length < 8) {
+    tiles.push(null as any);
+  }
+
+  return (
+    <div className="w-full">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 px-1">
+        Top Sites
+      </h3>
+      <div className="grid grid-cols-4 gap-3">
+        {tiles.map((site, i) => {
+          if (!site) {
+            return (
+              <div
+                key={`placeholder-slot-${topSites.length}-${i}`}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                  style={{
+                    background: "rgba(255,255,255,0.6)",
+                    backdropFilter: "blur(8px)",
+                    border: "1px solid rgba(255,255,255,0.4)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <Plus size={18} className="text-gray-300" />
+                </div>
+                <span className="text-[10px] text-gray-300 font-medium">—</span>
+              </div>
+            );
+          }
+          const domain = (() => {
+            try {
+              return new URL(site.url).hostname.replace("www.", "");
+            } catch {
+              return site.title || site.url;
+            }
+          })();
+          const faviconUrl =
+            site.favicon ||
+            `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+          return (
+            <button
+              type="button"
+              key={site.url}
+              data-ocid={`dashboard.item.${i + 1}`}
+              onClick={() => onNavigate(site.url)}
+              className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group"
+            >
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden relative"
+                style={{
+                  background: "rgba(255,255,255,0.6)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.4)",
+                  boxShadow:
+                    "0 2px 10px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.8)",
+                }}
+              >
+                <img
+                  src={faviconUrl}
+                  alt={domain}
+                  className="w-8 h-8 object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
+              <span
+                className="text-[10px] text-gray-600 font-medium text-center leading-tight"
+                style={{
+                  maxWidth: "56px",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {domain}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -736,6 +837,9 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
               ),
           )}
         </div>
+
+        {/* Smart Speed-Dial — Top Sites from visit history */}
+        <SpeedDialGrid onNavigate={handleNavigate} />
 
         {/* Jump Back Section */}
         <JumpBackSection onNavigate={handleNavigate} />

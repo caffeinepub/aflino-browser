@@ -29,6 +29,8 @@ export type Tab = {
   url: string;
   title: string;
   blocked: boolean;
+  lastActiveAt: number;
+  hibernated: boolean;
 };
 
 type SearchResult = {
@@ -46,6 +48,8 @@ function makeTab(url = ""): Tab {
     url,
     title: url ? url.replace(/^https?:\/\//, "").split("/")[0] : "New Tab",
     blocked: false,
+    lastActiveAt: Date.now(),
+    hibernated: false,
   };
 }
 
@@ -53,7 +57,7 @@ function extractDomain(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
-    return "";
+    return url.replace(/^https?:\/\//, "").split("/")[0];
   }
 }
 
@@ -169,6 +173,32 @@ function BrowserApp() {
     }
   }, [dataSaver]);
 
+  // Tab Hibernation: check every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const FIFTEEN_MINS = 15 * 60 * 1000;
+      const now = Date.now();
+      setTabs((prev) =>
+        prev.map((t) => {
+          if (t.id === activeTabId || t.hibernated) return t;
+          if (now - t.lastActiveAt > FIFTEEN_MINS) {
+            return { ...t, hibernated: true };
+          }
+          return t;
+        }),
+      );
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [activeTabId]);
+
+  const wakeTab = useCallback((id: string) => {
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, hibernated: false, lastActiveAt: Date.now() } : t,
+      ),
+    );
+  }, []);
+
   const handleToggleGhostMode = useCallback(() => {
     setGhostMode((prev) => {
       const next = !prev;
@@ -259,7 +289,14 @@ function BrowserApp() {
           setTabs((prev) =>
             prev.map((t) =>
               t.id === activeTabId
-                ? { ...t, url: searchUrl, title: url, blocked: false }
+                ? {
+                    ...t,
+                    url: searchUrl,
+                    title: url,
+                    blocked: false,
+                    lastActiveAt: Date.now(),
+                    hibernated: false,
+                  }
                 : t,
             ),
           );
@@ -302,6 +339,8 @@ function BrowserApp() {
                 url: normalized,
                 title: normalized.replace(/^https?:\/\//, "").split("/")[0],
                 blocked: false,
+                lastActiveAt: Date.now(),
+                hibernated: false,
               }
             : t,
         ),
@@ -337,6 +376,11 @@ function BrowserApp() {
 
   const switchTab = useCallback((id: string) => {
     setActiveTabId(id);
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, lastActiveAt: Date.now(), hibernated: false } : t,
+      ),
+    );
     setShowTabSwitcher(false);
   }, []);
 
@@ -398,6 +442,23 @@ function BrowserApp() {
       <main className="flex-1 overflow-hidden relative">
         {activeTab.url === "" ? (
           <Dashboard onNavigate={navigateTo} searchInputRef={searchInputRef} />
+        ) : activeTab.hibernated ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4 bg-gray-50">
+            <div className="text-5xl">💤</div>
+            <h2 className="text-lg font-semibold text-gray-700">Tab Snoozed</h2>
+            <p className="text-sm text-gray-500 text-center px-8">
+              This tab was put to sleep to save memory. Tap to restore.
+            </p>
+            <button
+              type="button"
+              data-ocid="tabswitcher.primary_button"
+              onClick={() => wakeTab(activeTabId)}
+              className="px-6 py-2.5 rounded-full text-white font-semibold active:scale-95 transition-transform"
+              style={{ background: "#1A73E8" }}
+            >
+              Restore Tab
+            </button>
+          </div>
         ) : splitViewActive ? (
           <SplitView
             topUrl={activeTab.url}
@@ -525,15 +586,25 @@ function BrowserApp() {
   );
 }
 
+type LaunchStep = "splash" | "logo" | "app";
+
 export default function App() {
   const isAdmin =
     typeof window !== "undefined" &&
     window.location.pathname.startsWith("/admin");
 
-  const [loading, setLoading] = useState(true);
+  const [launchStep, setLaunchStep] = useState<LaunchStep>("splash");
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 3000);
+    // Splash: 3s
+    const splashTimer = setTimeout(() => {
+      setLaunchStep("logo");
+    }, 3000);
+
+    // Logo: 1.2s after splash
+    const logoTimer = setTimeout(() => {
+      setLaunchStep("app");
+    }, 4200);
 
     // Analytics tracking
     const store = useShortcutsStore.getState();
@@ -556,7 +627,8 @@ export default function App() {
     window.addEventListener("appinstalled", onInstalled);
 
     return () => {
-      clearTimeout(t);
+      clearTimeout(splashTimer);
+      clearTimeout(logoTimer);
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
@@ -567,9 +639,41 @@ export default function App() {
 
   return (
     <AnimatePresence mode="wait">
-      {loading ? (
-        <SplashScreen key="splash" />
-      ) : (
+      {launchStep === "splash" && (
+        <motion.div
+          key="splash"
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <SplashScreen />
+        </motion.div>
+      )}
+      {launchStep === "logo" && (
+        <motion.div
+          key="logo"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 1.05 }}
+          transition={{ duration: 0.4 }}
+        >
+          <motion.span
+            className="text-4xl font-black tracking-tight select-none"
+            style={{
+              background: "linear-gradient(90deg, #1A73E8 0%, #0d47a1 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.35, delay: 0.05 }}
+          >
+            Aflino
+          </motion.span>
+        </motion.div>
+      )}
+      {launchStep === "app" && (
         <motion.div
           key="app"
           initial={{ opacity: 0 }}
