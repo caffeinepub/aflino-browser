@@ -264,6 +264,14 @@ interface ShortcutsState extends MultiEngineApiConfig {
   dismissedItemIds: string[];
   blockedSources: string[];
   blockedKeywordsUntil: Record<string, number>;
+  // Vault
+  vaultBookmarks: Bookmark[];
+  vaultPin: string;
+  setVaultPin: (pin: string) => void;
+  addVaultBookmark: (b: Bookmark) => void;
+  removeVaultBookmark: (id: string) => void;
+  moveToVault: (bookmarkId: string) => void;
+  moveFromVault: (bookmarkId: string) => void;
   // Wallet
   walletBalance: number;
   coupons: Coupon[];
@@ -452,6 +460,9 @@ export const useShortcutsStore = create<ShortcutsState>()(
       dismissedItemIds: [],
       blockedSources: [],
       blockedKeywordsUntil: {},
+      // Vault
+      vaultBookmarks: [],
+      vaultPin: "",
       // Wallet
       walletBalance: 500,
       coupons: [],
@@ -990,6 +1001,33 @@ export const useShortcutsStore = create<ShortcutsState>()(
           const rewardsEnabled = !vpnDetected && (config?.status ?? false);
           return { detectedCountry: countryCode, vpnDetected, rewardsEnabled };
         }),
+      setVaultPin: (pin) => set({ vaultPin: pin }),
+      addVaultBookmark: (b) =>
+        set((state) => ({ vaultBookmarks: [...state.vaultBookmarks, b] })),
+      removeVaultBookmark: (id) =>
+        set((state) => ({
+          vaultBookmarks: state.vaultBookmarks.filter((b) => b.id !== id),
+        })),
+      moveToVault: (bookmarkId) =>
+        set((state) => {
+          const bm = state.bookmarks.find((b) => b.id === bookmarkId);
+          if (!bm) return {};
+          return {
+            bookmarks: state.bookmarks.filter((b) => b.id !== bookmarkId),
+            vaultBookmarks: [...state.vaultBookmarks, bm],
+          };
+        }),
+      moveFromVault: (bookmarkId) =>
+        set((state) => {
+          const bm = state.vaultBookmarks.find((b) => b.id === bookmarkId);
+          if (!bm) return {};
+          return {
+            vaultBookmarks: state.vaultBookmarks.filter(
+              (b) => b.id !== bookmarkId,
+            ),
+            bookmarks: [...state.bookmarks, bm],
+          };
+        }),
       blockKeywordCategory: (key) =>
         set((state) => ({
           blockedKeywordsUntil: {
@@ -1001,3 +1039,61 @@ export const useShortcutsStore = create<ShortcutsState>()(
     { name: "aflino_shortcuts" },
   ),
 );
+// ─── Session-only Efficiency Suite store (not persisted) ─────────────────────
+function readSessionNumber(key: string, fallback: number): number {
+  try {
+    const v = sessionStorage.getItem(key);
+    return v !== null ? Number(v) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function readSessionArray(key: string): string[] {
+  try {
+    const v = sessionStorage.getItem(key);
+    return v ? (JSON.parse(v) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+interface EfficiencyState {
+  totalBytesSaved: number;
+  clipboardHistory: string[];
+  showClipboardPanel: boolean;
+  addBytesSaved: (bytes: number) => void;
+  addClipboardEntry: (text: string) => void;
+  clearClipboard: () => void;
+  setShowClipboardPanel: (v: boolean) => void;
+}
+
+export const useEfficiencyStore = create<EfficiencyState>()((set) => ({
+  totalBytesSaved: readSessionNumber("aflino_bytes_saved", 0),
+  clipboardHistory: readSessionArray("aflino_clipboard"),
+  showClipboardPanel: false,
+  addBytesSaved: (bytes) =>
+    set((s) => {
+      const next = s.totalBytesSaved + bytes;
+      try {
+        sessionStorage.setItem("aflino_bytes_saved", String(next));
+      } catch {}
+      return { totalBytesSaved: next };
+    }),
+  addClipboardEntry: (text) =>
+    set((s) => {
+      const filtered = s.clipboardHistory.filter((t) => t !== text);
+      const next = [text, ...filtered].slice(0, 5);
+      try {
+        sessionStorage.setItem("aflino_clipboard", JSON.stringify(next));
+      } catch {}
+      return { clipboardHistory: next };
+    }),
+  clearClipboard: () =>
+    set(() => {
+      try {
+        sessionStorage.removeItem("aflino_clipboard");
+      } catch {}
+      return { clipboardHistory: [] };
+    }),
+  setShowClipboardPanel: (v) => set({ showClipboardPanel: v }),
+}));

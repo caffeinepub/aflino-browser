@@ -1,5 +1,17 @@
-import { Bookmark, BookmarkX, FileText, X } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkX,
+  ChevronDown,
+  FileText,
+  Lock,
+  LockOpen,
+  Shield,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { useShortcutsStore } from "../useShortcutsStore";
 import type { Bookmark as BookmarkType } from "../useShortcutsStore";
 
 interface BookmarksSheetProps {
@@ -44,6 +56,87 @@ export function BookmarksSheet({
   onClose,
   onRemove,
 }: BookmarksSheetProps) {
+  const {
+    vaultBookmarks,
+    vaultPin,
+    setVaultPin,
+    moveToVault,
+    moveFromVault,
+    removeVaultBookmark,
+  } = useShortcutsStore();
+
+  const [showVault, setShowVault] = useState(false);
+  const [vaultUnlocked, setVaultUnlocked] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [settingPin, setSettingPin] = useState(false);
+  const [moveToVaultId, setMoveToVaultId] = useState<string | null>(null);
+  const [pinError, setPinError] = useState("");
+
+  const handleRevealVault = () => setShowVault(true);
+
+  const handleUnlockVault = () => {
+    setPinInput("");
+    setPinError("");
+    if (!vaultPin) {
+      setSettingPin(true);
+    } else {
+      setSettingPin(false);
+    }
+    setShowPinModal(true);
+  };
+
+  const handleMoveToVault = (id: string) => {
+    if (!vaultUnlocked) {
+      setMoveToVaultId(id);
+      setPinInput("");
+      setPinError("");
+      if (!vaultPin) {
+        setSettingPin(true);
+      } else {
+        setSettingPin(false);
+      }
+      setShowPinModal(true);
+    } else {
+      moveToVault(id);
+      toast.success("Moved to Secure Vault");
+    }
+  };
+
+  const handlePinSubmit = () => {
+    if (pinInput.length !== 4) {
+      setPinError("PIN must be 4 digits");
+      return;
+    }
+    if (settingPin) {
+      setVaultPin(pinInput);
+      setVaultUnlocked(true);
+      setShowPinModal(false);
+      if (moveToVaultId) {
+        moveToVault(moveToVaultId);
+        setMoveToVaultId(null);
+        toast.success("PIN set! Moved to Secure Vault");
+      } else {
+        toast.success("Vault PIN set successfully!");
+        if (!showVault) setShowVault(true);
+      }
+    } else {
+      if (pinInput === vaultPin) {
+        setVaultUnlocked(true);
+        setShowPinModal(false);
+        if (moveToVaultId) {
+          moveToVault(moveToVaultId);
+          setMoveToVaultId(null);
+          toast.success("Moved to Secure Vault");
+        } else {
+          if (!showVault) setShowVault(true);
+        }
+      } else {
+        setPinError("Incorrect PIN. Try again.");
+      }
+    }
+  };
+
   return (
     <AnimatePresence>
       <motion.div
@@ -118,7 +211,7 @@ export function BookmarksSheet({
             {bookmarks.length === 0 ? (
               <div
                 data-ocid="bookmarks.empty_state"
-                className="flex flex-col items-center justify-center py-20 gap-4 px-6"
+                className="flex flex-col items-center justify-center py-16 gap-4 px-6"
               >
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center"
@@ -172,16 +265,14 @@ export function BookmarksSheet({
                         data-ocid={`bookmarks.item.${idx + 1}`}
                         className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0 active:bg-gray-50 transition-colors"
                       >
-                        {/* Thumbnail */}
                         <BookmarkThumbnail
                           imageUrl={bm.imageUrl}
                           title={bm.name}
                         />
 
-                        {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p
-                            className="text-sm font-semibold text-gray-900 leading-snug"
+                            className="text-sm font-semibold text-gray-900 leading-tight"
                             style={{
                               display: "-webkit-box",
                               WebkitLineClamp: 2,
@@ -200,7 +291,18 @@ export function BookmarksSheet({
                           </p>
                         </div>
 
-                        {/* Remove button */}
+                        {/* Move to vault */}
+                        <button
+                          type="button"
+                          data-ocid={`bookmarks.toggle.${idx + 1}`}
+                          onClick={() => handleMoveToVault(bm.id)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-gray-300 hover:text-orange-500 hover:bg-orange-50 transition-colors active:scale-95 flex-shrink-0"
+                          title="Move to Secure Vault"
+                        >
+                          <Lock size={14} />
+                        </button>
+
+                        {/* Remove */}
                         <button
                           type="button"
                           data-ocid={`bookmarks.delete_button.${idx + 1}`}
@@ -216,11 +318,271 @@ export function BookmarksSheet({
                 </AnimatePresence>
               </ul>
             )}
+
+            {/* Secret Vault Reveal */}
+            {!showVault && (
+              <div className="flex justify-center py-4">
+                <button
+                  type="button"
+                  data-ocid="bookmarks.toggle"
+                  onClick={handleRevealVault}
+                  className="flex items-center gap-1.5 text-xs text-gray-300 hover:text-gray-400 transition-colors active:scale-95"
+                >
+                  <ChevronDown size={14} />
+                  <span>Reveal hidden vault</span>
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Vault Section */}
+            <AnimatePresence>
+              {showVault && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 12 }}
+                  transition={{ duration: 0.25 }}
+                  className="border-t-2 border-dashed border-orange-200 mx-4 mt-2 mb-2 rounded-2xl overflow-hidden"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #FFF7ED 0%, #FFFBF5 100%)",
+                  }}
+                >
+                  {/* Vault Header */}
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                        <Shield size={16} className="text-orange-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">
+                          🔒 Secure Vault
+                        </p>
+                        <p className="text-xs text-orange-400">
+                          {vaultUnlocked
+                            ? `${vaultBookmarks.length} item${vaultBookmarks.length !== 1 ? "s" : ""}`
+                            : "PIN protected"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {vaultUnlocked && (
+                        <button
+                          type="button"
+                          onClick={() => setVaultUnlocked(false)}
+                          className="text-xs text-orange-400 hover:text-orange-600 flex items-center gap-1"
+                        >
+                          <Lock size={12} /> Lock
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowVault(false)}
+                        className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center text-orange-400 hover:bg-orange-200 transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Vault content */}
+                  {!vaultUnlocked ? (
+                    <div className="flex flex-col items-center py-8 gap-3">
+                      <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center">
+                        <Lock size={24} className="text-orange-400" />
+                      </div>
+                      <p className="text-sm text-gray-600 font-medium">
+                        Tap to unlock your vault
+                      </p>
+                      <button
+                        type="button"
+                        data-ocid="bookmarks.open_modal_button"
+                        onClick={handleUnlockVault}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold transition-all active:scale-95"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)",
+                        }}
+                      >
+                        <LockOpen size={14} />
+                        {vaultPin ? "Enter PIN" : "Set up PIN"}
+                      </button>
+                    </div>
+                  ) : vaultBookmarks.length === 0 ? (
+                    <div className="flex flex-col items-center py-8 gap-2">
+                      <LockOpen size={28} className="text-orange-300" />
+                      <p className="text-sm text-gray-500">Vault is empty</p>
+                      <p className="text-xs text-gray-400">
+                        Lock icon on any bookmark to move it here
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="pb-3">
+                      {vaultBookmarks.map((bm, idx) => (
+                        <li
+                          key={bm.id}
+                          data-ocid={`bookmarks.vault.item.${idx + 1}`}
+                          className="flex items-center gap-3 px-4 py-2.5 border-b border-orange-100 last:border-b-0"
+                        >
+                          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-orange-100">
+                            {bm.imageUrl ? (
+                              <img
+                                src={bm.imageUrl}
+                                alt={bm.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <FileText
+                                  size={16}
+                                  className="text-orange-400"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 truncate">
+                              {bm.name}
+                            </p>
+                            <p className="text-xs text-orange-300 truncate">
+                              {bm.url}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            data-ocid={`bookmarks.vault.delete_button.${idx + 1}`}
+                            onClick={() => {
+                              moveFromVault(bm.id);
+                              toast.success("Moved back to bookmarks");
+                            }}
+                            className="text-xs text-orange-400 hover:text-orange-600 px-2 py-1 rounded-lg hover:bg-orange-100 transition-colors"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              removeVaultBookmark(bm.id);
+                              toast("Removed from vault");
+                            }}
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors active:scale-95"
+                          >
+                            <X size={13} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Bottom safe area */}
           <div className="h-6" />
         </motion.div>
+
+        {/* PIN Modal */}
+        <AnimatePresence>
+          {showPinModal && (
+            <motion.div
+              data-ocid="bookmarks.dialog"
+              className="absolute inset-0 flex items-center justify-center p-6"
+              style={{ zIndex: 10 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div
+                className="absolute inset-0"
+                onClick={() => {
+                  setShowPinModal(false);
+                  setMoveToVaultId(null);
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Escape" && setShowPinModal(false)}
+                aria-label="Close PIN modal"
+                style={{ background: "rgba(0,0,0,0.5)" }}
+              />
+              <motion.div
+                className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs"
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+              >
+                <div className="flex flex-col items-center gap-4">
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center"
+                    style={{
+                      background: "linear-gradient(135deg, #FF6B35, #FF8C42)",
+                    }}
+                  >
+                    <Lock size={22} color="white" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {settingPin ? "Set Vault PIN" : "Enter Vault PIN"}
+                  </h3>
+                  <p className="text-xs text-gray-500 text-center">
+                    {settingPin
+                      ? "Choose a 4-digit PIN to protect your vault"
+                      : "Enter your 4-digit vault PIN"}
+                  </p>
+                  <input
+                    type="number"
+                    data-ocid="bookmarks.input"
+                    value={pinInput}
+                    onChange={(e) => {
+                      setPinInput(e.target.value.slice(0, 4));
+                      setPinError("");
+                    }}
+                    placeholder="_ _ _ _"
+                    className="w-full text-center text-2xl font-bold tracking-[0.5em] border-2 rounded-xl px-4 py-3 outline-none transition-colors"
+                    style={{
+                      borderColor: pinError ? "#EF4444" : "#E5E7EB",
+                      color: "#1A73E8",
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handlePinSubmit()}
+                  />
+                  {pinError && (
+                    <p
+                      data-ocid="bookmarks.error_state"
+                      className="text-xs text-red-500"
+                    >
+                      {pinError}
+                    </p>
+                  )}
+                  <div className="flex gap-3 w-full">
+                    <button
+                      type="button"
+                      data-ocid="bookmarks.cancel_button"
+                      onClick={() => {
+                        setShowPinModal(false);
+                        setPinInput("");
+                        setMoveToVaultId(null);
+                      }}
+                      className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      data-ocid="bookmarks.confirm_button"
+                      onClick={handlePinSubmit}
+                      className="flex-1 py-3 rounded-xl text-white text-sm font-semibold transition-all active:scale-95"
+                      style={{
+                        background: "linear-gradient(135deg, #FF6B35, #FF8C42)",
+                      }}
+                    >
+                      {settingPin ? "Set PIN" : "Unlock"}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </AnimatePresence>
   );

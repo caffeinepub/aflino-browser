@@ -1,5 +1,6 @@
 import { ImageOff } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useEfficiencyStore } from "../useShortcutsStore";
 
 interface DataSaverImageProps {
   src: string;
@@ -17,6 +18,15 @@ export function DataSaverImage({
   style,
 }: DataSaverImageProps) {
   const [loaded, setLoaded] = useState(false);
+  const addBytesSaved = useEfficiencyStore((s) => s.addBytesSaved);
+  const dataSaverRef = { current: dataSaver };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run once on mount
+  useEffect(() => {
+    if (dataSaverRef.current && !loaded) {
+      addBytesSaved(153600);
+    }
+  }, []);
 
   if (!dataSaver || loaded) {
     return <img src={src} alt={alt} className={className} style={style} />;

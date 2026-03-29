@@ -7,6 +7,7 @@ import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
 import { DataSaverImage } from "./DataSaverImage";
 import { DiscoverFeed } from "./DiscoverFeed";
 import { JumpBackSection } from "./JumpBackSection";
+import { ScanToTranslateModal } from "./ScanToTranslateModal";
 import { SearchResultsPage } from "./SearchResultsPage";
 import { StoriesSection } from "./StoriesSection";
 
@@ -311,6 +312,7 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
   const [showCamera, setShowCamera] = useState(false);
   const [ocrExtractedText, setOcrExtractedText] = useState("");
   const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [showTranslateModal, setShowTranslateModal] = useState(false);
   const ocrInputRef = useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = useState<Array<{
     title: string;
@@ -529,8 +531,19 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
     setOcrProcessing(true);
     toast("🔍 Extracting text...", { duration: 2000 });
     try {
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng");
+      // Load Tesseract.js from CDN if not already loaded
+      if (!(window as any).Tesseract) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src =
+            "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Failed to load OCR library"));
+          document.head.appendChild(s);
+        });
+      }
+      const TesseractLib = (window as any).Tesseract;
+      const worker = await TesseractLib.createWorker("eng");
       const {
         data: { text },
       } = await worker.recognize(file);
@@ -539,6 +552,7 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
       if (extracted) {
         setSearchVal(extracted);
         setOcrExtractedText(extracted);
+        setShowTranslateModal(true);
         toast("✅ Text Extracted Successfully");
       } else {
         toast("No text detected in image");
@@ -668,7 +682,7 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
           )}
         </div>
 
-        {/* OCR Copy Button */}
+        {/* OCR extracted — open translate modal */}
         {ocrExtractedText && !ocrProcessing && (
           <div className="flex items-center gap-2 mt-1 px-1">
             <span className="text-xs text-gray-500 truncate flex-1">
@@ -677,13 +691,22 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
             </span>
             <button
               type="button"
+              data-ocid="dashboard.ocr.translate_button"
+              onClick={() => setShowTranslateModal(true)}
+              className="flex items-center gap-1 text-xs font-medium whitespace-nowrap"
+              style={{ color: "#1A73E8" }}
+            >
+              🌐 Translate
+            </button>
+            <button
+              type="button"
               data-ocid="dashboard.ocr.copy_button"
               onClick={() => {
                 navigator.clipboard
                   .writeText(ocrExtractedText)
                   .then(() => toast("Copied to clipboard!"));
               }}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-medium whitespace-nowrap"
             >
               <ClipboardCopy size={13} />
               Copy
@@ -754,6 +777,17 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
           <CameraModal
             onClose={() => setShowCamera(false)}
             onCapture={handleCapture}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showTranslateModal && ocrExtractedText && (
+          <ScanToTranslateModal
+            text={ocrExtractedText}
+            onClose={() => {
+              setShowTranslateModal(false);
+              setOcrExtractedText("");
+            }}
           />
         )}
       </AnimatePresence>

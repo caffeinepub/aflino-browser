@@ -19,6 +19,7 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useEfficiencyStore } from "../useShortcutsStore";
 import { type HistoryEntry, useShortcutsStore } from "../useShortcutsStore";
 import { SafeGuardWallet } from "./SafeGuardWallet";
 
@@ -223,6 +224,47 @@ function LoginSignupCard() {
               : "Create Account"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function BandwidthCounter() {
+  const totalBytesSaved = useEfficiencyStore((s) => s.totalBytesSaved);
+  const [displayMB, setDisplayMB] = useState(0);
+  const prevRef = useRef(0);
+
+  useEffect(() => {
+    const targetMB = totalBytesSaved / (1024 * 1024);
+    const startMB = prevRef.current;
+    if (targetMB === startMB) return;
+    const duration = 800;
+    const start = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - start;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - (1 - t) * (1 - t);
+      setDisplayMB(startMB + (targetMB - startMB) * eased);
+      if (t < 1) requestAnimationFrame(animate);
+      else prevRef.current = targetMB;
+    };
+    requestAnimationFrame(animate);
+  }, [totalBytesSaved]);
+
+  if (totalBytesSaved === 0) return null;
+
+  return (
+    <div
+      className="mx-4 mt-0 mb-0 flex items-center gap-3 px-4 py-3 rounded-b-2xl border-t border-orange-100"
+      style={{ background: "#fff7ed" }}
+    >
+      <span className="text-base">💰</span>
+      <p className="text-xs text-gray-600 flex-1">
+        You saved approx.{" "}
+        <span className="font-bold" style={{ color: "#F97316" }}>
+          {displayMB.toFixed(2)} MB
+        </span>{" "}
+        this session
+      </p>
     </div>
   );
 }
@@ -667,6 +709,7 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
                     </button>
                   </div>
                 </div>
+                <BandwidthCounter />
               </div>
 
               {/* Quick Links */}

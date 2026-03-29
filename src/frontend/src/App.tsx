@@ -1,8 +1,10 @@
+import { ClipboardList } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BookmarksSheet } from "./components/BookmarksSheet";
 import { BrowserFrame } from "./components/BrowserFrame";
+import { ClipboardPanel } from "./components/ClipboardPanel";
 import { Dashboard } from "./components/Dashboard";
 import { FooterNav } from "./components/FooterNav";
 import { Header } from "./components/Header";
@@ -16,6 +18,7 @@ import { SplitView } from "./components/SplitView";
 import { TabSwitcher } from "./components/TabSwitcher";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { useGeoDetection } from "./hooks/useGeoDetection";
+import { useEfficiencyStore } from "./useShortcutsStore";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "./useShortcutsStore";
 import { isPwaMode } from "./utils/pwaUtils";
 
@@ -50,6 +53,32 @@ function extractDomain(url: string): string {
   } catch {
     return "";
   }
+}
+
+function ClipboardFloatingButton() {
+  const setShowClipboardPanel = useEfficiencyStore(
+    (s) => s.setShowClipboardPanel,
+  );
+  const clipboardHistory = useEfficiencyStore((s) => s.clipboardHistory);
+  return (
+    <button
+      type="button"
+      data-ocid="clipboard.open_modal_button"
+      onClick={() => setShowClipboardPanel(true)}
+      className="fixed z-50 left-0 top-1/2 -translate-y-1/2 bg-white border border-gray-200 shadow-md rounded-r-xl p-2 flex flex-col items-center gap-1 active:scale-95 transition-transform"
+      title="Magic Clipboard"
+    >
+      <ClipboardList size={18} style={{ color: "#1A73E8" }} />
+      {clipboardHistory.length > 0 && (
+        <span
+          className="text-[9px] font-bold leading-none px-1 rounded-full text-white"
+          style={{ background: "#F97316" }}
+        >
+          {clipboardHistory.length}
+        </span>
+      )}
+    </button>
+  );
 }
 
 function BrowserApp() {
@@ -110,6 +139,19 @@ function BrowserApp() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [ghostMode]);
+
+  const addClipboardEntry = useEfficiencyStore((s) => s.addClipboardEntry);
+
+  useEffect(() => {
+    const handler = () => {
+      const text = window.getSelection()?.toString().trim();
+      if (text && text.length > 0) {
+        addClipboardEntry(text);
+      }
+    };
+    document.addEventListener("copy", handler);
+    return () => document.removeEventListener("copy", handler);
+  }, [addClipboardEntry]);
 
   useEffect(() => {
     if (dataSaver) {
@@ -376,6 +418,10 @@ function BrowserApp() {
         onToggleSplitView={handleToggleSplitView}
         ghostMode={ghostMode}
       />
+
+      {/* Magic Clipboard floating trigger */}
+      <ClipboardFloatingButton />
+      <ClipboardPanel />
 
       {showTabSwitcher && (
         <TabSwitcher

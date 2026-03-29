@@ -2,6 +2,7 @@ import { ArrowLeft, Search, Star, TrendingUp, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useEfficiencyStore } from "../useShortcutsStore";
 import type { Bookmark } from "../useShortcutsStore";
 
 interface OmniboxOverlayProps {
@@ -54,6 +55,7 @@ export function OmniboxOverlay({
 }: OmniboxOverlayProps) {
   const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement>(null);
+  const clipboardHistory = useEfficiencyStore((s) => s.clipboardHistory);
 
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80);
@@ -186,6 +188,47 @@ export function OmniboxOverlay({
           Go
         </button>
       </div>
+
+      {/* Smart Paste Strip */}
+      {clipboardHistory.length > 0 && (
+        <div
+          className="mx-4 mb-1 mt-2 rounded-2xl px-3 py-2"
+          style={{
+            backdropFilter: "blur(16px)",
+            background: "rgba(255,255,255,0.18)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            boxShadow: "0 4px 24px rgba(26,115,232,0.08)",
+          }}
+        >
+          <p className="text-xs font-semibold text-gray-500 mb-2">
+            📋 Quick Paste:
+          </p>
+          <div
+            className="flex gap-2 overflow-x-auto pb-1"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {clipboardHistory.map((item) => (
+              <button
+                key={item}
+                type="button"
+                data-ocid="omnibox.primary_button"
+                onClick={() => {
+                  setValue(item);
+                  handleNavigateLogic(item, onNavigate, onClose);
+                }}
+                className="flex-shrink-0 px-3 py-1 rounded-full text-xs text-gray-800 active:scale-95 transition-all"
+                style={{
+                  background: "rgba(255,255,255,0.9)",
+                  border: "1px solid rgba(26,115,232,0.15)",
+                }}
+                title={item}
+              >
+                {item.length > 20 ? `${item.slice(0, 20)}…` : item}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Suggestions area */}
       <div className="flex-1 overflow-y-auto">

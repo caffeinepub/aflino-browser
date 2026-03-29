@@ -7,10 +7,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Tab } from "../App";
 import { LANGUAGES } from "../i18n/languages";
 import { useLanguageStore } from "../useLanguageStore";
+import { useEfficiencyStore } from "../useShortcutsStore";
 import { LanguageMegaModal } from "./LanguageMegaModal";
 
 interface HeaderProps {
@@ -88,32 +89,66 @@ export function Header({
     </button>
   );
 
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showLeafTooltip, setShowLeafTooltip] = useState(false);
+  const totalBytesSaved = useEfficiencyStore((s) => s.totalBytesSaved);
+  const savedMB = (totalBytesSaved / (1024 * 1024)).toFixed(2);
+
   const LeafButton = (
-    <button
-      type="button"
-      data-ocid="header.data_saver.toggle"
-      onClick={onToggleDataSaver}
-      className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
-      style={{
-        background: dataSaver ? "rgba(34,197,94,0.12)" : "transparent",
-      }}
-      title={
-        dataSaver
-          ? "Data Saver ON — tap to disable"
-          : "Data Saver — reduce data usage"
-      }
-    >
-      <Leaf
-        size={16}
-        style={{
-          color: dataSaver ? "#16a34a" : "#9ca3af",
-          filter: dataSaver
-            ? "drop-shadow(0 0 6px rgba(22,163,74,0.7))"
-            : "none",
-          transition: "color 0.3s, filter 0.3s",
+    <div className="relative flex-shrink-0">
+      {showLeafTooltip && dataSaver && (
+        <div
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-medium whitespace-nowrap shadow-lg pointer-events-none"
+          style={{ background: "rgba(17,24,39,0.92)" }}
+        >
+          🍃 Saved {savedMB} MB
+          <div
+            className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent"
+            style={{ borderTopColor: "rgba(17,24,39,0.92)" }}
+          />
+        </div>
+      )}
+      <button
+        type="button"
+        data-ocid="header.data_saver.toggle"
+        onClick={onToggleDataSaver}
+        onPointerDown={() => {
+          if (!dataSaver) return;
+          longPressRef.current = setTimeout(
+            () => setShowLeafTooltip(true),
+            600,
+          );
         }}
-      />
-    </button>
+        onPointerUp={() => {
+          if (longPressRef.current) clearTimeout(longPressRef.current);
+          setTimeout(() => setShowLeafTooltip(false), 2000);
+        }}
+        onPointerLeave={() => {
+          if (longPressRef.current) clearTimeout(longPressRef.current);
+          setShowLeafTooltip(false);
+        }}
+        className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90"
+        style={{
+          background: dataSaver ? "rgba(34,197,94,0.12)" : "transparent",
+        }}
+        title={
+          dataSaver
+            ? "Data Saver ON — long press to see savings"
+            : "Data Saver — reduce data usage"
+        }
+      >
+        <Leaf
+          size={16}
+          style={{
+            color: dataSaver ? "#16a34a" : "#9ca3af",
+            filter: dataSaver
+              ? "drop-shadow(0 0 6px rgba(22,163,74,0.7))"
+              : "none",
+            transition: "color 0.3s, filter 0.3s",
+          }}
+        />
+      </button>
+    </div>
   );
 
   const GlobeButton = (
