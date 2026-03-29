@@ -2,6 +2,7 @@ import { Camera, Mic, Search } from "lucide-react";
 import { useState } from "react";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
 import type { AdminConfig, CustomLink } from "./BrowserShell";
+import { HiddenAdminFooter } from "./HiddenAdminFooter";
 
 interface NewTabPageProps {
   adminConfig: AdminConfig;
@@ -221,19 +222,7 @@ export function NewTabPage({ adminConfig, onNavigate }: NewTabPageProps) {
       </div>
 
       {/* Footer */}
-      <footer className="mt-auto pt-8 pb-2">
-        <p className="text-xs text-gray-300 text-center">
-          © {new Date().getFullYear()} Built with ❤️ using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-300 hover:underline"
-          >
-            caffeine.ai
-          </a>
-        </p>
-      </footer>
+      <HiddenAdminFooter />
     </div>
   );
 }

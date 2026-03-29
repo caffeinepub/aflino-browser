@@ -6,6 +6,7 @@ import {
   MoreVertical,
   Music,
   Plus,
+  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -71,9 +72,15 @@ export function Header({
   const isWebsiteView =
     activeTab.url !== "" && activeTab.url !== "aflino://newtab";
 
+  // Security shield: check if current URL is HTTP (unencrypted)
+  const isHttp =
+    activeTab.url.startsWith("http://") &&
+    !activeTab.url.startsWith("https://");
+
   const FlameButton = (
     <button
       type="button"
+      id="tour-ghost-mode"
       data-ocid="header.ghost_mode.toggle"
       onClick={onToggleGhostMode}
       className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
@@ -120,6 +127,7 @@ export function Header({
       )}
       <button
         type="button"
+        id="tour-data-saver"
         data-ocid="header.data_saver.toggle"
         onClick={onToggleDataSaver}
         onPointerDown={() => {
@@ -208,6 +216,39 @@ export function Header({
     </button>
   );
 
+  // Security shield icon — dynamic based on HTTP/HTTPS
+  const ShieldIcon = ghostMode ? (
+    <ShieldCheck
+      size={20}
+      style={{
+        color: "#FF6B35",
+        filter: "drop-shadow(0 0 6px rgba(255,107,53,0.7))",
+        flexShrink: 0,
+        transition: "color 0.3s, filter 0.3s",
+      }}
+    />
+  ) : isHttp ? (
+    <ShieldAlert
+      size={20}
+      style={{
+        color: "#ef4444",
+        filter: "drop-shadow(0 0 6px rgba(239,68,68,0.5))",
+        flexShrink: 0,
+        transition: "color 0.3s, filter 0.3s",
+      }}
+    />
+  ) : (
+    <ShieldCheck
+      size={20}
+      style={{
+        color: "#22c55e",
+        filter: "drop-shadow(0 0 6px rgba(34,197,94,0.7))",
+        flexShrink: 0,
+        transition: "color 0.3s, filter 0.3s",
+      }}
+    />
+  );
+
   return (
     <>
       <header
@@ -241,27 +282,25 @@ export function Header({
                   className="flex-1 flex items-center gap-2.5 rounded-full px-4 py-2 min-w-0 text-left cursor-pointer hover:shadow-md transition-all duration-300"
                   animate={{
                     backgroundColor: ghostMode ? "#2D2D2D" : "#ffffff",
-                    borderColor: ghostMode ? "#FF6B35" : AFLINO_BLUE,
+                    borderColor: ghostMode
+                      ? "#FF6B35"
+                      : isHttp
+                        ? "#ef4444"
+                        : AFLINO_BLUE,
                     boxShadow: ghostMode
                       ? "0 0 0 3px rgba(255,107,53,0.12)"
-                      : "0 0 0 3px rgba(26,115,232,0.08)",
+                      : isHttp
+                        ? "0 0 0 3px rgba(239,68,68,0.08)"
+                        : "0 0 0 3px rgba(26,115,232,0.08)",
                   }}
                   transition={{ duration: 0.3 }}
                   style={{
-                    border: `1.5px solid ${ghostMode ? "#FF6B35" : AFLINO_BLUE}`,
+                    border: `1.5px solid ${
+                      ghostMode ? "#FF6B35" : isHttp ? "#ef4444" : AFLINO_BLUE
+                    }`,
                   }}
                 >
-                  <ShieldCheck
-                    size={20}
-                    style={{
-                      color: ghostMode ? "#FF6B35" : "#22c55e",
-                      filter: ghostMode
-                        ? "drop-shadow(0 0 6px rgba(255,107,53,0.7))"
-                        : "drop-shadow(0 0 6px rgba(34,197,94,0.7))",
-                      flexShrink: 0,
-                      transition: "color 0.3s, filter 0.3s",
-                    }}
-                  />
+                  {ShieldIcon}
                   {ghostMode && (
                     <span
                       className="text-base leading-none flex-shrink-0"
@@ -278,6 +317,11 @@ export function Header({
                   >
                     {extractDomain(activeTab.url)}
                   </span>
+                  {isHttp && !ghostMode && (
+                    <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                      Not Secure
+                    </span>
+                  )}
                 </motion.button>
 
                 {/* Right action cluster */}

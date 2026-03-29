@@ -338,6 +338,14 @@ interface ShortcutsState extends MultiEngineApiConfig {
   setSearchEngine: (engine: SearchEngine) => void;
   setJsEnabled: (enabled: boolean) => void;
   setDataSaver: (v: boolean) => void;
+  tourCompleted: boolean;
+  setTourCompleted: (val: boolean) => void;
+  featureAnalytics: Record<string, number>;
+  insightsBannerDismissed: boolean;
+  readArticles: string[];
+  incrementFeatureAnalytic: (feature: string) => void;
+  dismissInsightsBanner: () => void;
+  markArticleRead: (id: string) => void;
   setMultiEngineConfig: (config: Partial<MultiEngineApiConfig>) => void;
   setSearchApiConfig: (
     config: Partial<{
@@ -432,6 +440,10 @@ export const useShortcutsStore = create<ShortcutsState>()(
       searchEngine: "google",
       jsEnabled: true,
       dataSaver: false,
+      tourCompleted: false,
+      featureAnalytics: {},
+      insightsBannerDismissed: false,
+      readArticles: [],
       searchCount: 0,
       googleSearchApiKey: "",
       searchEngineCx: "",
@@ -541,6 +553,21 @@ export const useShortcutsStore = create<ShortcutsState>()(
       setSearchEngine: (engine) => set({ searchEngine: engine }),
       setJsEnabled: (enabled) => set({ jsEnabled: enabled }),
       setDataSaver: (v) => set({ dataSaver: v }),
+      setTourCompleted: (val) => set({ tourCompleted: val }),
+      incrementFeatureAnalytic: (feature) =>
+        set((s) => ({
+          featureAnalytics: {
+            ...s.featureAnalytics,
+            [feature]: (s.featureAnalytics[feature] ?? 0) + 1,
+          },
+        })),
+      dismissInsightsBanner: () => set({ insightsBannerDismissed: true }),
+      markArticleRead: (id) =>
+        set((s) => ({
+          readArticles: s.readArticles.includes(id)
+            ? s.readArticles
+            : [...s.readArticles, id],
+        })),
       setMultiEngineConfig: (config) =>
         set((state) => ({ ...state, ...config })),
       setSearchApiConfig: (config) =>

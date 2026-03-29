@@ -1,4 +1,16 @@
 import {
+  Archive,
+  Clipboard,
+  Eye,
+  Flame,
+  Globe,
+  LayoutGrid,
+  Lock,
+  ScanText,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -49,6 +61,61 @@ function SectionHeader({
   );
 }
 
+function SearchHistoryTable({ entries }: { entries: SearchHistoryLogEntry[] }) {
+  if (entries.length === 0) {
+    return (
+      <p className="text-sm text-gray-400 text-center py-6">
+        No searches recorded yet.
+      </p>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-gray-100">
+            <th className="text-left py-2 pr-3 text-gray-500 font-semibold">
+              Date
+            </th>
+            <th className="text-left py-2 pr-3 text-gray-500 font-semibold">
+              Query
+            </th>
+            <th className="text-left py-2 pr-3 text-gray-500 font-semibold">
+              Engine
+            </th>
+            <th className="text-left py-2 text-gray-500 font-semibold">User</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.slice(0, 20).map((e) => (
+            <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50">
+              <td className="py-1.5 pr-3 text-gray-400">{e.date}</td>
+              <td className="py-1.5 pr-3 text-gray-800 max-w-[140px] truncate">
+                {e.query}
+              </td>
+              <td className="py-1.5 pr-3 text-gray-500 capitalize">
+                {e.engine}
+              </td>
+              <td className="py-1.5">
+                <span
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                  style={{
+                    background:
+                      e.userType === "Logged-in" ? "#EBF3FE" : "#F3F4F6",
+                    color: e.userType === "Logged-in" ? BLUE : "#6B7280",
+                  }}
+                >
+                  {e.userType}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function MetricCard({
   label,
   value,
@@ -74,77 +141,100 @@ function MetricCard({
   );
 }
 
-function SearchHistoryTable({ entries }: { entries: SearchHistoryLogEntry[] }) {
-  const latest = entries.slice(0, 50);
-  if (latest.length === 0) {
-    return (
-      <div
-        data-ocid="admin.analytics.search_history.empty_state"
-        className="flex flex-col items-center py-10 text-gray-400"
-      >
-        <p className="text-sm">No search history yet.</p>
-        <p className="text-xs mt-1">
-          Searches will appear here as users browse.
-        </p>
-      </div>
-    );
-  }
+const FEATURES = [
+  {
+    tag: "ghostMode",
+    label: "Ghost Mode",
+    icon: <Flame size={16} className="text-orange-500" />,
+  },
+  {
+    tag: "ocr",
+    label: "OCR & Translate",
+    icon: <ScanText size={16} className="text-blue-500" />,
+  },
+  {
+    tag: "dataSaver",
+    label: "Data Saver",
+    icon: <Zap size={16} className="text-green-500" />,
+  },
+  {
+    tag: "zenMode",
+    label: "Zen Mode",
+    icon: <Eye size={16} className="text-purple-500" />,
+  },
+  {
+    tag: "clipboard",
+    label: "Magic Clipboard",
+    icon: <Clipboard size={16} className="text-yellow-600" />,
+  },
+  {
+    tag: "splitView",
+    label: "Split View",
+    icon: <LayoutGrid size={16} className="text-sky-500" />,
+  },
+  {
+    tag: "vault",
+    label: "App Vault",
+    icon: <Lock size={16} className="text-slate-600" />,
+  },
+  {
+    tag: "speedDial",
+    label: "Speed Dial",
+    icon: <Globe size={16} className="text-indigo-500" />,
+  },
+  {
+    tag: "backup",
+    label: "Backup & Restore",
+    icon: <Archive size={16} className="text-emerald-600" />,
+  },
+];
+
+function FeatureEngagementCard({
+  featureAnalytics,
+}: { featureAnalytics: Record<string, number> }) {
+  const sorted = [...FEATURES].sort(
+    (a, b) => (featureAnalytics[b.tag] ?? 0) - (featureAnalytics[a.tag] ?? 0),
+  );
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-100">
-            {["Date", "Search Query", "Engine Used", "User Type"].map((h) => (
-              <th
-                key={h}
-                className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wide pb-2 pr-4"
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {latest.map((entry, idx) => (
-            <tr
-              key={entry.id}
-              data-ocid={`admin.analytics.search_history.item.${idx + 1}`}
-              className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+    <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-6">
+      <div className="flex items-center gap-2 mb-5">
+        <ShieldCheck size={18} className="text-blue-500" />
+        <div>
+          <h2 className="text-base font-bold text-gray-900">
+            Feature Analytics (Internal)
+          </h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Admin only — article reads per feature
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        {sorted.map(({ tag, label, icon }) => {
+          const count = featureAnalytics[tag] ?? 0;
+          return (
+            <div
+              key={tag}
+              className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0"
             >
-              <td className="py-2.5 pr-4 text-xs text-gray-400 whitespace-nowrap">
-                {new Date(entry.date).toLocaleDateString()}{" "}
-                {new Date(entry.date).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </td>
-              <td className="py-2.5 pr-4 text-sm text-gray-800 max-w-[180px] truncate">
-                {entry.query}
-              </td>
-              <td className="py-2.5 pr-4">
+              <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+                {icon}
+              </div>
+              <span className="flex-1 text-sm text-gray-700">{label}</span>
+              {count > 0 ? (
                 <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full capitalize"
-                  style={{ background: "rgba(26,115,232,0.1)", color: BLUE }}
+                  className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
+                  style={{ background: "#1A73E8" }}
                 >
-                  {entry.engine}
+                  {count}
                 </span>
-              </td>
-              <td className="py-2.5">
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    entry.userType === "Logged-in"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
-                >
-                  {entry.userType}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              ) : (
+                <span className="text-sm text-gray-300">—</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -157,6 +247,7 @@ export function AnalyticsSection() {
     appDailyClicks,
     webVisitorsTotal,
     searchHistoryLog,
+    featureAnalytics,
   } = useShortcutsStore();
 
   const estimatedRevenue = (searchCount * 0.05).toFixed(2);
@@ -171,7 +262,7 @@ export function AnalyticsSection() {
         </p>
       </div>
 
-      {/* ─── Part A: App Analytics ─── */}
+      {/* Part A: App Analytics */}
       <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-6">
         <SectionHeader title="App Analytics" subtitle="PWA / Installed Users" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -193,7 +284,7 @@ export function AnalyticsSection() {
         </div>
       </div>
 
-      {/* ─── Part B: Web Analytics ─── */}
+      {/* Part B: Web Analytics */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <SectionHeader
           title="Web Analytics"
@@ -211,8 +302,6 @@ export function AnalyticsSection() {
             sub="Total searches across all engines"
           />
         </div>
-
-        {/* Search History Log */}
         <div>
           <h3 className="text-sm font-bold text-gray-800 mb-3">
             Search History Log
@@ -221,7 +310,7 @@ export function AnalyticsSection() {
         </div>
       </div>
 
-      {/* ─── Estimated Revenue ─── */}
+      {/* Estimated Revenue */}
       <div
         data-ocid="admin.analytics.search_revenue.card"
         className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6"
@@ -250,7 +339,7 @@ export function AnalyticsSection() {
         </div>
       </div>
 
-      {/* ─── Traffic Overview ─── */}
+      {/* Traffic Overview */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <SectionHeader
           title="Traffic Overview"
@@ -344,6 +433,9 @@ export function AnalyticsSection() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Feature Engagement */}
+      <FeatureEngagementCard featureAnalytics={featureAnalytics} />
     </div>
   );
 }

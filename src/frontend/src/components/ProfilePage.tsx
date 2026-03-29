@@ -13,6 +13,7 @@ import {
   Shield,
   Smartphone,
   Trash2,
+  Upload,
   User,
   Wallet,
   X,
@@ -291,6 +292,7 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
     countryConfigs,
     dataSaver,
     setDataSaver,
+    setTourCompleted,
   } = useShortcutsStore();
   const { canInstall, isInstalled, triggerInstall } = usePwaInstall();
 
@@ -713,6 +715,117 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
                   </div>
                 </div>
                 <BandwidthCounter />
+                {/* Onboarding Tour Reset */}
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    data-ocid="profile.tour_reset.button"
+                    onClick={() => {
+                      setTourCompleted(false);
+                      toast("Tour reset! Refresh to start the tour again.", {
+                        duration: 3000,
+                      });
+                    }}
+                    className="text-sm underline transition-colors"
+                    style={{ color: "#1A73E8" }}
+                  >
+                    Reset Onboarding Tour
+                  </button>
+                </div>
+              </div>
+
+              {/* Data Management */}
+              <div className="px-4 pb-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+                  Data Management
+                </p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-4">
+                  <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                    Back up your bookmarks, vault, rewards, and clipboard data
+                    as an encrypted{" "}
+                    <span className="font-semibold text-gray-700">.aflino</span>{" "}
+                    file. Restore instantly on any device.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      data-ocid="profile.backup_data.button"
+                      onClick={() => {
+                        try {
+                          const keys = Object.keys(localStorage).filter((k) =>
+                            k.startsWith("aflino"),
+                          );
+                          const data: Record<string, string> = {};
+                          for (const k of keys) {
+                            const v = localStorage.getItem(k);
+                            if (v !== null) data[k] = v;
+                          }
+                          const encoded = btoa(
+                            encodeURIComponent(JSON.stringify(data)),
+                          );
+                          const blob = new Blob([encoded], {
+                            type: "application/octet-stream",
+                          });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          const date = new Date().toISOString().split("T")[0];
+                          a.download = `aflino-backup-${date}.aflino`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          toast.success("✅ Backup downloaded successfully!");
+                        } catch {
+                          toast.error("Failed to create backup");
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold text-white active:scale-95 transition-transform"
+                      style={{ background: "#1A73E8" }}
+                    >
+                      <Download size={15} />
+                      Backup Data
+                    </button>
+                    <label
+                      data-ocid="profile.restore_data.button"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold text-white cursor-pointer active:scale-95 transition-transform"
+                      style={{ background: "#16a34a" }}
+                    >
+                      <Upload size={15} />
+                      Restore Data
+                      <input
+                        type="file"
+                        accept=".aflino"
+                        className="sr-only"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            try {
+                              const text = ev.target?.result as string;
+                              const data = JSON.parse(
+                                decodeURIComponent(atob(text.trim())),
+                              );
+                              for (const [k, v] of Object.entries(data)) {
+                                localStorage.setItem(k, v as string);
+                              }
+                              toast.success(
+                                "✅ Data restored successfully! Reloading...",
+                                { duration: 2000 },
+                              );
+                              setTimeout(() => window.location.reload(), 2000);
+                            } catch {
+                              toast.error(
+                                "Invalid backup file. Please try again.",
+                              );
+                            }
+                          };
+                          reader.readAsText(file);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* QR Sync */}
@@ -804,6 +917,41 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
                       </motion.button>
                     ),
                   )}
+                </div>
+              </div>
+
+              {/* About Aflino */}
+              <div className="px-4 pb-8">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+                  About
+                </p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-5 text-center">
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #1A73E8 0%, #0d47a1 100%)",
+                    }}
+                  >
+                    <span className="text-white text-2xl font-black">A</span>
+                  </div>
+                  <p className="text-base font-black text-gray-900">
+                    Aflino Browser
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5 mb-3">v49.0</p>
+                  <p className="text-xs text-gray-500 leading-relaxed mb-3 max-w-xs mx-auto">
+                    Your fast, secure, and rewarding browsing experience.
+                  </p>
+                  <p
+                    className="text-sm font-semibold mb-1"
+                    style={{ color: "#1A73E8" }}
+                  >
+                    Made with <span className="text-red-500">❤️</span> in India
+                    by Aflino
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    © 2026 Aflino. All rights reserved.
+                  </p>
                 </div>
               </div>
             </>

@@ -1,4 +1,4 @@
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ShieldX } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { FloatingMediaHub } from "./components/FloatingMediaHub";
 import { FooterNav } from "./components/FooterNav";
 import { Header } from "./components/Header";
 import { OmniboxOverlay } from "./components/OmniboxOverlay";
+import { OnboardingTour } from "./components/OnboardingTour";
 import { PocketMenu } from "./components/PocketMenu";
 import { ProfilePage } from "./components/ProfilePage";
 import { ProgressBar } from "./components/ProgressBar";
@@ -42,6 +43,15 @@ type SearchResult = {
 
 let tabCounter = 1;
 
+const PHISHING_DOMAINS = [
+  "bit.ly/scam",
+  "free-iphone",
+  "win-prize",
+  "click-here-now",
+  "verify-account-now",
+  "phishing-test",
+];
+
 function makeTab(url = ""): Tab {
   return {
     id: String(tabCounter++),
@@ -69,6 +79,7 @@ function ClipboardFloatingButton() {
   return (
     <button
       type="button"
+      id="tour-magic-clipboard"
       data-ocid="clipboard.open_modal_button"
       onClick={() => setShowClipboardPanel(true)}
       className="fixed z-50 left-0 top-1/2 -translate-y-1/2 bg-white border border-gray-200 shadow-md rounded-r-xl p-2 flex flex-col items-center gap-1 active:scale-95 transition-transform"
@@ -87,6 +98,55 @@ function ClipboardFloatingButton() {
   );
 }
 
+interface PhishingInterstitialProps {
+  url: string;
+  onBack: () => void;
+  onProceed: () => void;
+}
+
+function PhishingInterstitial({
+  url,
+  onBack,
+  onProceed,
+}: PhishingInterstitialProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-red-600 px-6"
+    >
+      <ShieldX size={72} className="text-white mb-5" strokeWidth={1.5} />
+      <h1 className="text-2xl font-black text-white text-center mb-3">
+        ⚠️ Dangerous Site Detected
+      </h1>
+      <p className="text-red-100 text-sm text-center leading-relaxed mb-2 max-w-xs">
+        This website has been flagged for phishing or scam activity. We strongly
+        recommend not proceeding.
+      </p>
+      <p className="text-red-200 text-xs text-center mb-8 max-w-xs break-all">
+        {url}
+      </p>
+      <button
+        type="button"
+        data-ocid="phishing.cancel_button"
+        onClick={onBack}
+        className="w-full max-w-xs py-3 rounded-2xl bg-white text-red-600 font-bold text-sm mb-3 active:scale-95 transition-transform shadow-lg"
+      >
+        Go Back to Safety
+      </button>
+      <button
+        type="button"
+        data-ocid="phishing.confirm_button"
+        onClick={onProceed}
+        className="w-full max-w-xs py-3 rounded-2xl bg-red-800 text-red-200 font-medium text-xs active:scale-95 transition-transform"
+      >
+        Proceed Anyway (Not Recommended)
+      </button>
+    </motion.div>
+  );
+}
+
 function BrowserApp() {
   useGeoDetection();
   const [tabs, setTabs] = useState<Tab[]>([makeTab()]);
@@ -101,6 +161,9 @@ function BrowserApp() {
     query: string;
     results: SearchResult[];
     loading: boolean;
+  } | null>(null);
+  const [phishingBlock, setPhishingBlock] = useState<{
+    url: string;
   } | null>(null);
 
   // Ghost Mode
@@ -126,6 +189,7 @@ function BrowserApp() {
     inAppSearchEnabled,
     dataSaver,
     setDataSaver,
+    tourCompleted,
   } = useShortcutsStore();
 
   const hasApiKeys = !!googleSearchApiKey && !!searchEngineCx;
@@ -207,7 +271,10 @@ function BrowserApp() {
           style: { background: "#fff7f3", borderLeft: "4px solid #FF4500" },
         });
       } else {
+        // Purge all session data including clipboard
         sessionStorage.clear();
+        sessionStorage.removeItem("aflino_clipboard");
+        useEfficiencyStore.getState().clearClipboard();
         toast("Ghost Mode Disabled: Returning to standard browsing.");
       }
       return next;
@@ -267,6 +334,26 @@ function BrowserApp() {
     [],
   );
 
+  const loadUrl = useCallback(
+    (url: string) => {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === activeTabId
+            ? {
+                ...t,
+                url,
+                title: url.replace(/^https?:\/\//, "").split("/")[0],
+                blocked: false,
+                lastActiveAt: Date.now(),
+                hibernated: false,
+              }
+            : t,
+        ),
+      );
+    },
+    [activeTabId],
+  );
+
   const navigateTo = useCallback(
     (url: string) => {
       // Check if this is a plain search query (not a URL)
@@ -308,6 +395,23 @@ function BrowserApp() {
         url.startsWith("http://") || url.startsWith("https://")
           ? url
           : `https://${url}`;
+
+      // Phishing check
+      const isPhishing = PHISHING_DOMAINS.some((term) =>
+        normalized.toLowerCase().includes(term),
+      );
+      if (isPhishing) {
+        setPhishingBlock({ url: normalized });
+        return;
+      }
+
+      // HTTP warning
+      if (normalized.startsWith("http://")) {
+        toast.warning(
+          "⚠️ This site is not encrypted. Your data may be at risk.",
+          { duration: 5000 },
+        );
+      }
 
       const isRealWebsite =
         !normalized.includes("/search?q=") &&
@@ -410,6 +514,7 @@ function BrowserApp() {
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {!tourCompleted && <OnboardingTour />}
       <ProgressBar loading={iframeLoading} />
       <Header
         activeTab={activeTab}
@@ -540,6 +645,21 @@ function BrowserApp() {
         />
       )}
 
+      {/* Phishing Interstitial */}
+      <AnimatePresence>
+        {phishingBlock && (
+          <PhishingInterstitial
+            url={phishingBlock.url}
+            onBack={() => setPhishingBlock(null)}
+            onProceed={() => {
+              const url = phishingBlock.url;
+              setPhishingBlock(null);
+              loadUrl(url);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showPocketMenu && (
           <PocketMenu
@@ -596,15 +716,15 @@ export default function App() {
   const [launchStep, setLaunchStep] = useState<LaunchStep>("splash");
 
   useEffect(() => {
-    // Splash: 3s
+    // Splash: 800ms for fast load
     const splashTimer = setTimeout(() => {
       setLaunchStep("logo");
-    }, 3000);
+    }, 800);
 
-    // Logo: 1.2s after splash
+    // Logo: 0.6s after splash
     const logoTimer = setTimeout(() => {
       setLaunchStep("app");
-    }, 4200);
+    }, 1600);
 
     // Analytics tracking
     const store = useShortcutsStore.getState();

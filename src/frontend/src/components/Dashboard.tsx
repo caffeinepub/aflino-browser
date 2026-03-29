@@ -1,11 +1,19 @@
-import { Camera, ClipboardCopy, Mic, Plus, ScanText, X } from "lucide-react";
+import { Camera, ClipboardCopy, Globe, Mic, ScanText, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  type InsightsArticle,
+  insightsArticles,
+} from "../data/insightsArticles";
 import { useTranslation } from "../i18n/useTranslation";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
+import { CleanReaderModal } from "./CleanReaderModal";
 import { DataSaverImage } from "./DataSaverImage";
 import { DiscoverFeed } from "./DiscoverFeed";
+import { FeatureBanner } from "./FeatureBanner";
+import { HiddenAdminFooter } from "./HiddenAdminFooter";
+import { InsightsArticleCard } from "./InsightsArticleCard";
 import { JumpBackSection } from "./JumpBackSection";
 import { ScanToTranslateModal } from "./ScanToTranslateModal";
 import { SearchResultsPage } from "./SearchResultsPage";
@@ -132,107 +140,165 @@ function CarouselRow({
   );
 }
 
-// ── Smart Speed-Dial Grid ─────────────────────────────────────────────────────
-function SpeedDialGrid({ onNavigate }: { onNavigate: (url: string) => void }) {
+// ── Top Sites Carousel (Compact Square, 3.5–4 cards visible) ─────────────────
+function TopSitesCarousel({
+  onNavigate,
+}: { onNavigate: (url: string) => void }) {
   const visitFrequency = useShortcutsStore((s) => s.visitFrequency);
 
   const topSites = Object.values(visitFrequency)
     .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
+    .slice(0, 10);
 
-  if (topSites.length === 0) return null;
+  const fallbackSites = [
+    {
+      url: "https://google.com",
+      title: "Google",
+      favicon: "https://www.google.com/s2/favicons?domain=google.com&sz=64",
+    },
+    {
+      url: "https://youtube.com",
+      title: "YouTube",
+      favicon: "https://www.google.com/s2/favicons?domain=youtube.com&sz=64",
+    },
+    {
+      url: "https://facebook.com",
+      title: "Facebook",
+      favicon: "https://www.google.com/s2/favicons?domain=facebook.com&sz=64",
+    },
+    {
+      url: "https://instagram.com",
+      title: "Instagram",
+      favicon: "https://www.google.com/s2/favicons?domain=instagram.com&sz=64",
+    },
+    {
+      url: "https://twitter.com",
+      title: "X (Twitter)",
+      favicon: "https://www.google.com/s2/favicons?domain=twitter.com&sz=64",
+    },
+    {
+      url: "https://amazon.com",
+      title: "Amazon",
+      favicon: "https://www.google.com/s2/favicons?domain=amazon.com&sz=64",
+    },
+    {
+      url: "https://wikipedia.org",
+      title: "Wikipedia",
+      favicon: "https://www.google.com/s2/favicons?domain=wikipedia.org&sz=64",
+    },
+    {
+      url: "https://reddit.com",
+      title: "Reddit",
+      favicon: "https://www.google.com/s2/favicons?domain=reddit.com&sz=64",
+    },
+    {
+      url: "https://netflix.com",
+      title: "Netflix",
+      favicon: "https://www.google.com/s2/favicons?domain=netflix.com&sz=64",
+    },
+    {
+      url: "https://linkedin.com",
+      title: "LinkedIn",
+      favicon: "https://www.google.com/s2/favicons?domain=linkedin.com&sz=64",
+    },
+  ];
 
-  // Fill up to 8 with placeholders
-  const tiles = [...topSites];
-  while (tiles.length < 8) {
-    tiles.push(null as any);
-  }
+  const sites = topSites.length >= 3 ? topSites : fallbackSites;
 
   return (
     <div className="w-full">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 px-1">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-4 flex items-center gap-1.5">
+        <Globe size={12} />
         Top Sites
       </h3>
-      <div className="grid grid-cols-4 gap-3">
-        {tiles.map((site, i) => {
-          if (!site) {
-            return (
-              <div
-                key={`placeholder-slot-${topSites.length}-${i}`}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{
-                    background: "rgba(255,255,255,0.6)",
-                    backdropFilter: "blur(8px)",
-                    border: "1px solid rgba(255,255,255,0.4)",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                  }}
-                >
-                  <Plus size={18} className="text-gray-300" />
-                </div>
-                <span className="text-[10px] text-gray-300 font-medium">—</span>
-              </div>
-            );
+      <div style={{ width: "100%", overflow: "hidden" }}>
+        <div
+          style={
+            {
+              display: "flex",
+              overflowX: "auto",
+              scrollSnapType: "x mandatory",
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+              paddingLeft: "16px",
+              paddingBottom: "4px",
+              scrollBehavior: "smooth",
+              WebkitOverflowScrolling: "touch",
+            } as React.CSSProperties
           }
-          const domain = (() => {
-            try {
-              return new URL(site.url).hostname.replace("www.", "");
-            } catch {
-              return site.title || site.url;
-            }
-          })();
-          const faviconUrl =
-            site.favicon ||
-            `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-          return (
-            <button
-              type="button"
-              key={site.url}
-              data-ocid={`dashboard.item.${i + 1}`}
-              onClick={() => onNavigate(site.url)}
-              className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform group"
-            >
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden relative"
-                style={{
-                  background: "rgba(255,255,255,0.6)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,0.4)",
-                  boxShadow:
-                    "0 2px 10px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.8)",
+        >
+          {sites.map((site, i) => {
+            const domain = (() => {
+              try {
+                return new URL(site.url).hostname.replace("www.", "");
+              } catch {
+                return site.title || site.url;
+              }
+            })();
+            const faviconUrl =
+              site.favicon ||
+              `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+            return (
+              <button
+                type="button"
+                key={site.url}
+                data-ocid={`topsites.item.${i + 1}`}
+                onClick={() => {
+                  navigator.vibrate?.(10);
+                  onNavigate(site.url);
                 }}
-              >
-                <img
-                  src={faviconUrl}
-                  alt={domain}
-                  className="w-8 h-8 object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              </div>
-              <span
-                className="text-[10px] text-gray-600 font-medium text-center leading-tight"
                 style={{
-                  maxWidth: "56px",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
+                  flexShrink: 0,
+                  width: "calc(22% - 4px)",
+                  scrollSnapAlign: "start",
+                  marginRight: "8px",
+                  minWidth: "72px",
+                  maxWidth: "88px",
                 }}
+                className="active:scale-95 transition-transform duration-150 focus:outline-none"
               >
-                {domain}
-              </span>
-            </button>
-          );
-        })}
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="w-full aspect-square rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center overflow-hidden">
+                    <img
+                      src={faviconUrl}
+                      alt={domain}
+                      className="w-9 h-9 object-contain"
+                      onError={(e) => {
+                        const t = e.target as HTMLImageElement;
+                        t.style.display = "none";
+                        const parent = t.parentElement;
+                        if (parent && !parent.querySelector(".fallback-text")) {
+                          const span = document.createElement("span");
+                          span.className =
+                            "fallback-text text-sm font-bold text-blue-500";
+                          span.textContent = (site.title || domain)
+                            .slice(0, 2)
+                            .toUpperCase();
+                          parent.appendChild(span);
+                        }
+                      }}
+                    />
+                  </div>
+                  <span
+                    className="text-xs text-gray-600 font-medium w-full text-center leading-tight"
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {domain}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+          <div style={{ flexShrink: 0, width: "16px" }} />
+        </div>
       </div>
     </div>
   );
 }
-
 // ── Camera Modal ──────────────────────────────────────────────────────────────
 function CameraModal({
   onClose,
@@ -414,6 +480,9 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
   const [ocrExtractedText, setOcrExtractedText] = useState("");
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [showTranslateModal, setShowTranslateModal] = useState(false);
+  const [feedTab, setFeedTab] = useState<"discover" | "insights">("discover");
+  const [openInsightsArticle, setOpenInsightsArticle] =
+    useState<InsightsArticle | null>(null);
   const ocrInputRef = useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = useState<Array<{
     title: string;
@@ -428,7 +497,6 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
   const aflinoApps = useShortcutsStore((s) => s.aflinoApps);
   const globalBrands = useShortcutsStore((s) => s.globalBrands);
   const social = useShortcutsStore((s) => s.social);
-  const productivity = useShortcutsStore((s) => s.productivity);
   const categoryVisibility = useShortcutsStore((s) => s.categoryVisibility);
   const categoryTitles = useShortcutsStore((s) => s.categoryTitles);
   const voiceCameraEnabled = useShortcutsStore((s) => s.voiceCameraEnabled);
@@ -666,6 +734,7 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
     }
   };
 
+  // Only aflinoApps, globalBrands, social — productivity removed from home
   const carouselRows: {
     key: keyof typeof categoryVisibility;
     items: typeof aflinoApps;
@@ -689,12 +758,6 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
       items: social,
       gradientFrom: "#f5f8ff",
       gradientTo: "#eff6ff",
-    },
-    {
-      key: "productivity",
-      items: productivity,
-      gradientFrom: "#eff6ff",
-      gradientTo: "#f0f7ff",
     },
   ];
 
@@ -761,6 +824,7 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
               </button>
               <button
                 type="button"
+                id="tour-scan-translate"
                 data-ocid="dashboard.ocr.button"
                 title="Extract text from image (OCR)"
                 onClick={() => ocrInputRef.current?.click()}
@@ -821,7 +885,8 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
             </button>
           </div>
         )}
-        {/* Carousel Rows — driven by store visibility & titles */}
+
+        {/* Carousel Rows — aflinoApps, globalBrands, social */}
         <div className="w-full flex flex-col gap-3 mt-2">
           {carouselRows.map(
             ({ key, items, gradientFrom, gradientTo }) =>
@@ -838,39 +903,73 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
           )}
         </div>
 
-        {/* Smart Speed-Dial — Top Sites from visit history */}
-        <SpeedDialGrid onNavigate={handleNavigate} />
-
-        {/* Jump Back Section */}
+        {/* Jump Back Section - below Social */}
         <JumpBackSection onNavigate={handleNavigate} />
+
+        {/* Top Sites Carousel - below Jump Back, 75/25 rule */}
+        <TopSitesCarousel onNavigate={handleNavigate} />
+
+        {/* Feature Banner */}
+        <FeatureBanner />
 
         {/* Aflino Stories */}
         <StoriesSection onNavigate={handleNavigate} />
 
-        {/* Discover Feed */}
-        <DiscoverFeed onNavigate={handleNavigate} />
+        {/* Feed Tab Switcher */}
+        <div className="px-3 pt-2 pb-1">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-ocid="feed.tab"
+              onClick={() => setFeedTab("discover")}
+              className="px-4 py-1.5 rounded-full text-sm font-semibold transition-colors"
+              style={
+                feedTab === "discover"
+                  ? { background: "#1A73E8", color: "#fff" }
+                  : { background: "#F1F3F4", color: "#5F6368" }
+              }
+            >
+              Discover
+            </button>
+            <button
+              type="button"
+              data-ocid="insights.tab"
+              onClick={() => setFeedTab("insights")}
+              className="px-4 py-1.5 rounded-full text-sm font-semibold transition-colors"
+              style={
+                feedTab === "insights"
+                  ? { background: "#1A73E8", color: "#fff" }
+                  : { background: "#F1F3F4", color: "#5F6368" }
+              }
+            >
+              Aflino Insights
+            </button>
+          </div>
+        </div>
+
+        {/* Discover Feed or Insights */}
+        {feedTab === "discover" ? (
+          <DiscoverFeed onNavigate={handleNavigate} />
+        ) : (
+          <div className="px-3 pb-4 grid grid-cols-2 gap-3">
+            {insightsArticles.map((article) => (
+              <InsightsArticleCard
+                key={article.id}
+                article={article}
+                onClick={setOpenInsightsArticle}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Clean Reader Modal */}
+        <CleanReaderModal
+          article={openInsightsArticle}
+          onClose={() => setOpenInsightsArticle(null)}
+        />
 
         {/* Footer */}
-        <div className="pt-4 text-center flex flex-col items-center gap-2">
-          <p className="text-xs text-gray-400">
-            © {new Date().getFullYear()}. Built with ❤️ using{" "}
-            <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-gray-600"
-            >
-              caffeine.ai
-            </a>
-          </p>
-          <a
-            href="/admin"
-            className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
-            title={`Admin panel: ${typeof window !== "undefined" ? window.location.origin : ""}/admin`}
-          >
-            Admin
-          </a>
-        </div>
+        <HiddenAdminFooter />
       </motion.div>
 
       <AnimatePresence>
