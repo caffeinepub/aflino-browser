@@ -14,17 +14,49 @@ function extractDomain(url: string): string {
   }
 }
 
+const SHOPPING_KEYWORDS = [
+  "shop",
+  "product",
+  "/p/",
+  "buy",
+  "cart",
+  "deal",
+  "offer",
+  "price",
+  "checkout",
+  "purchase",
+  "store",
+  "item",
+  "sale",
+];
+
+/**
+ * Extract a meaningful search term from a URL for Smart Sync.
+ * Uses the domain name + any readable path segment.
+ */
+function extractSearchKeyword(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const domain = parsed.hostname.replace(/^www\./, "");
+    // Try to extract a human-readable segment from the path
+    const pathParts = parsed.pathname
+      .split("/")
+      .map((p) => decodeURIComponent(p).replace(/[-_+]/g, " ").trim())
+      .filter((p) => p.length > 2 && !/^[0-9a-f-]{8,}$/i.test(p)); // skip UUIDs/IDs
+    const keyword = pathParts[pathParts.length - 1] || domain;
+    return keyword.length > 3 ? keyword : domain;
+  } catch {
+    return extractDomain(url);
+  }
+}
+
 function getSmartSyncUrl(topUrl: string): string | null {
   const lower = topUrl.toLowerCase();
-  if (
-    lower.includes("shop") ||
-    lower.includes("product") ||
-    lower.includes("/p/")
-  ) {
-    const title = extractDomain(topUrl);
-    return `https://aflino.com/store/search?q=${encodeURIComponent(title)}`;
-  }
-  return null;
+  const hasShoppingKeyword = SHOPPING_KEYWORDS.some((kw) => lower.includes(kw));
+  if (!hasShoppingKeyword) return null;
+
+  const keyword = extractSearchKeyword(topUrl);
+  return `https://www.google.com/search?q=${encodeURIComponent(keyword)}`;
 }
 
 export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
@@ -32,17 +64,23 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
   const [bottomUrl, setBottomUrl] = useState("about:blank");
   const topIframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Preload Smart Sync immediately when topUrl changes —
+  // does NOT wait for iframe load to complete
   useEffect(() => {
     setTopBlocked(false);
     const smart = getSmartSyncUrl(topUrl);
     if (smart) {
       setBottomUrl(smart);
+    } else {
+      // Reset bottom pane if top URL no longer matches shopping keywords
+      setBottomUrl("about:blank");
     }
   }, [topUrl]);
 
   const topDomain = extractDomain(topUrl);
   const bottomDomain =
     bottomUrl === "about:blank" ? "Empty" : extractDomain(bottomUrl);
+  const isSmartSynced = bottomUrl !== "about:blank";
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -95,19 +133,28 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
           className="h-6 px-3 flex items-center gap-1.5 flex-shrink-0 bg-gray-50 border-b border-gray-100"
           style={{ height: 24 }}
         >
-          <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: isSmartSynced ? "#1A73E8" : "#6b7280" }}
+          />
           <span className="text-[10px] text-gray-500 font-medium truncate">
             {bottomDomain}
           </span>
-          {bottomUrl !== "about:blank" && bottomUrl.includes("aflino.com") && (
-            <span className="text-[9px] text-blue-400 ml-1">✦ Auto-synced</span>
+          {isSmartSynced && (
+            <span
+              className="text-[9px] font-medium ml-1 px-1.5 py-0.5 rounded-full"
+              style={{ background: "#E8F0FE", color: "#1A73E8" }}
+            >
+              ✦ Smart Sync
+            </span>
           )}
         </div>
 
         {bottomUrl === "about:blank" ? (
           <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 gap-2">
             <p className="text-xs text-gray-400 text-center px-4">
-              Visit a shop/product page above to auto-sync here
+              Visit a shop or product page above to auto-sync search results
+              here
             </p>
           </div>
         ) : (
@@ -116,7 +163,7 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
             className="flex-1 w-full border-0"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             loading="lazy"
-            title="Bottom view"
+            title="Bottom view — Smart Sync"
           />
         )}
       </div>

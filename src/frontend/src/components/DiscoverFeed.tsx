@@ -4,12 +4,84 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useShortcutsStore } from "../useShortcutsStore";
 import { getPersonalizedDiscover } from "../utils/personalization";
+import { DataSaverImage } from "./DataSaverImage";
 
 interface DiscoverFeedProps {
   onNavigate: (url: string) => void;
 }
 
+type NarratorPrefs = {
+  speed: number;
+  voice: "male" | "female";
+};
+
+const NARRATOR_SESSION_KEY = "aflino_narrator_prefs";
+const SPEED_OPTIONS = [0.5, 1, 1.5, 2] as const;
+
+function loadNarratorPrefs(): NarratorPrefs {
+  try {
+    const raw = sessionStorage.getItem(NARRATOR_SESSION_KEY);
+    if (raw) return JSON.parse(raw) as NarratorPrefs;
+  } catch {
+    /* ignore */
+  }
+  return { speed: 1, voice: "female" };
+}
+
+function saveNarratorPrefs(prefs: NarratorPrefs) {
+  try {
+    sessionStorage.setItem(NARRATOR_SESSION_KEY, JSON.stringify(prefs));
+  } catch {
+    /* ignore */
+  }
+}
+
+function pickVoice(
+  voices: SpeechSynthesisVoice[],
+  gender: "male" | "female",
+): SpeechSynthesisVoice | undefined {
+  // Prefer English voices
+  const english = voices.filter((v) => v.lang.startsWith("en"));
+  const pool = english.length > 0 ? english : voices;
+
+  // Some browsers expose gender hints in voice names
+  const femaleCues = [
+    "female",
+    "zira",
+    "victoria",
+    "samantha",
+    "karen",
+    "moira",
+    "fiona",
+    "tessa",
+    "veena",
+  ];
+  const maleCues = [
+    "male",
+    "david",
+    "daniel",
+    "alex",
+    "tom",
+    "fred",
+    "lee",
+    "rishi",
+  ];
+
+  if (gender === "female") {
+    const match = pool.find((v) =>
+      femaleCues.some((c) => v.name.toLowerCase().includes(c)),
+    );
+    return match ?? pool[0];
+  }
+  const match = pool.find((v) =>
+    maleCues.some((c) => v.name.toLowerCase().includes(c)),
+  );
+  // fallback: pick a different voice than the first (often female default)
+  return match ?? pool[1] ?? pool[0];
+}
+
 export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
+  const dataSaver = useShortcutsStore((s) => s.dataSaver);
   const keywords = useShortcutsStore((s) => s.searchKeywords);
   const visitFrequency = useShortcutsStore((s) => s.visitFrequency);
   const dismissedItemIds = useShortcutsStore((s) => s.dismissedItemIds);
@@ -25,6 +97,33 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Narrator preferences (session-persisted)
+  const [narratorPrefs, setNarratorPrefs] =
+    useState<NarratorPrefs>(loadNarratorPrefs);
+  const [availableVoices, setAvailableVoices] = useState<
+    SpeechSynthesisVoice[]
+  >([]);
+
+  // Load system voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) setAvailableVoices(voices);
+    };
+    loadVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () =>
+      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+  }, []);
+
+  const updatePrefs = (updates: Partial<NarratorPrefs>) => {
+    setNarratorPrefs((prev) => {
+      const next = { ...prev, ...updates };
+      saveNarratorPrefs(next);
+      return next;
+    });
+  };
 
   const items = getPersonalizedDiscover(
     keywords,
@@ -51,6 +150,21 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
       window.speechSynthesis.cancel();
     };
   }, []);
+
+  // When prefs change while speaking, restart with new settings
+  const speakText = (text: string, id: string, prefs: NarratorPrefs) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = prefs.speed;
+    if (availableVoices.length > 0) {
+      const voice = pickVoice(availableVoices, prefs.voice);
+      if (voice) utterance.voice = voice;
+    }
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+    setSpeakingId(id);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const isBookmarked = (url: string) => bookmarks.some((b) => b.url === url);
 
@@ -106,17 +220,47 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
       setSpeakingId(null);
       return;
     }
-    // Stop any previous
-    window.speechSynthesis.cancel();
 
     const text =
       `${item.title}. ${item.category ? `Category: ${item.category}` : ""}`.trim();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.onend = () => setSpeakingId(null);
-    utterance.onerror = () => setSpeakingId(null);
-    setSpeakingId(item.id);
-    window.speechSynthesis.speak(utterance);
+    speakText(text, item.id, narratorPrefs);
+  };
+
+  const handleSpeedChange = (
+    e: React.MouseEvent,
+    speed: number,
+    currentSpeakingItem:
+      | ReturnType<typeof getPersonalizedDiscover>[0]
+      | undefined,
+  ) => {
+    e.stopPropagation();
+    const newPrefs = { ...narratorPrefs, speed };
+    updatePrefs({ speed });
+    // If currently speaking, restart with new speed
+    if (currentSpeakingItem) {
+      const text =
+        `${currentSpeakingItem.title}. ${currentSpeakingItem.category ? `Category: ${currentSpeakingItem.category}` : ""}`.trim();
+      speakText(text, currentSpeakingItem.id, newPrefs);
+    }
+  };
+
+  const handleVoiceToggle = (
+    e: React.MouseEvent,
+    currentSpeakingItem:
+      | ReturnType<typeof getPersonalizedDiscover>[0]
+      | undefined,
+  ) => {
+    e.stopPropagation();
+    const newVoice: "male" | "female" =
+      narratorPrefs.voice === "male" ? "female" : "male";
+    const newPrefs = { ...narratorPrefs, voice: newVoice };
+    updatePrefs({ voice: newVoice });
+    // If currently speaking, restart with new voice
+    if (currentSpeakingItem) {
+      const text =
+        `${currentSpeakingItem.title}. ${currentSpeakingItem.category ? `Category: ${currentSpeakingItem.category}` : ""}`.trim();
+      speakText(text, currentSpeakingItem.id, newPrefs);
+    }
   };
 
   return (
@@ -162,14 +306,11 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
                       onNavigate(item.url);
                     }}
                   >
-                    <img
+                    <DataSaverImage
                       src={item.image}
                       alt={item.title}
                       className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
+                      dataSaver={dataSaver}
                     />
                   </button>
 
@@ -320,6 +461,73 @@ export function DiscoverFeed({ onNavigate }: DiscoverFeedProps) {
                       )}
                     </div>
                   </div>
+
+                  {/* ── Narrator Controls (only visible when this card is speaking) ── */}
+                  <AnimatePresence>
+                    {isSpeaking && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div
+                          className="flex flex-col items-center gap-2 px-3 py-2.5 border-t border-blue-50"
+                          style={{ background: "#f0f6ff" }}
+                          onClickCapture={(e) => e.stopPropagation()}
+                          role="presentation"
+                        >
+                          {/* Speed Pills row */}
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap w-full">
+                            {SPEED_OPTIONS.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                data-ocid="discover.narrator.speed.toggle"
+                                onClick={(e) => handleSpeedChange(e, s, item)}
+                                className="px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all duration-150 active:scale-95"
+                                style={{
+                                  background:
+                                    narratorPrefs.speed === s
+                                      ? "#1A73E8"
+                                      : "#e5e7eb",
+                                  color:
+                                    narratorPrefs.speed === s
+                                      ? "#ffffff"
+                                      : "#6b7280",
+                                }}
+                              >
+                                {s}x
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Voice Toggle row */}
+                          <div className="flex justify-center w-full">
+                            <button
+                              type="button"
+                              data-ocid="discover.narrator.toggle"
+                              onClick={(e) => handleVoiceToggle(e, item)}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all duration-200 active:scale-95"
+                              style={{
+                                background: "#1A73E8",
+                                color: "#ffffff",
+                              }}
+                              title="Toggle voice gender"
+                            >
+                              <span className="text-sm leading-none">
+                                {narratorPrefs.voice === "female" ? "♀" : "♂"}
+                              </span>
+                              {narratorPrefs.voice === "female"
+                                ? "Female"
+                                : "Male"}
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
             );

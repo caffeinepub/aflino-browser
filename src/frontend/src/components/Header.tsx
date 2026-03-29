@@ -1,4 +1,11 @@
-import { Flame, Globe, MoreVertical, Plus, ShieldCheck } from "lucide-react";
+import {
+  Flame,
+  Globe,
+  Leaf,
+  MoreVertical,
+  Plus,
+  ShieldCheck,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import type { Tab } from "../App";
@@ -16,6 +23,8 @@ interface HeaderProps {
   onOpenOmnibox: () => void;
   ghostMode?: boolean;
   onToggleGhostMode?: () => void;
+  dataSaver?: boolean;
+  onToggleDataSaver?: () => void;
 }
 
 function extractDomain(url: string): string {
@@ -37,6 +46,8 @@ export function Header({
   onOpenOmnibox,
   ghostMode = false,
   onToggleGhostMode,
+  dataSaver = false,
+  onToggleDataSaver,
 }: HeaderProps) {
   const [showLangModal, setShowLangModal] = useState(false);
   const { selectedCode, landmarkIcons } = useLanguageStore();
@@ -70,6 +81,34 @@ export function Header({
           color: ghostMode ? "#FF6B35" : "#9ca3af",
           filter: ghostMode
             ? "drop-shadow(0 0 6px rgba(255,107,53,0.8))"
+            : "none",
+          transition: "color 0.3s, filter 0.3s",
+        }}
+      />
+    </button>
+  );
+
+  const LeafButton = (
+    <button
+      type="button"
+      data-ocid="header.data_saver.toggle"
+      onClick={onToggleDataSaver}
+      className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
+      style={{
+        background: dataSaver ? "rgba(34,197,94,0.12)" : "transparent",
+      }}
+      title={
+        dataSaver
+          ? "Data Saver ON — tap to disable"
+          : "Data Saver — reduce data usage"
+      }
+    >
+      <Leaf
+        size={16}
+        style={{
+          color: dataSaver ? "#16a34a" : "#9ca3af",
+          filter: dataSaver
+            ? "drop-shadow(0 0 6px rgba(22,163,74,0.7))"
             : "none",
           transition: "color 0.3s, filter 0.3s",
         }}
@@ -133,6 +172,9 @@ export function Header({
           boxShadow: ghostMode
             ? "0 1px 6px rgba(255,107,53,0.15), 0 0.5px 2px rgba(255,107,53,0.08)"
             : "0 1px 6px rgba(0,0,0,0.08), 0 0.5px 2px rgba(0,0,0,0.04)",
+          borderBottom: ghostMode
+            ? "2px solid #FF4500"
+            : "2px solid transparent",
         }}
       >
         <div className="flex items-center h-full px-3 gap-2">
@@ -146,36 +188,52 @@ export function Header({
                 exit={{ opacity: 0, y: 6 }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
-                {/* Tappable pill address bar */}
-                <button
+                {/* Tappable pill address bar — Ghost Mode aware */}
+                <motion.button
                   type="button"
                   data-ocid="header.address_bar.button"
                   onClick={onOpenOmnibox}
-                  className="flex-1 flex items-center gap-2.5 bg-white rounded-full px-4 py-2 min-w-0 text-left cursor-pointer hover:shadow-md transition-shadow"
-                  style={{
-                    border: ghostMode
-                      ? "1.5px solid #FF6B35"
-                      : `1.5px solid ${AFLINO_BLUE}`,
+                  className="flex-1 flex items-center gap-2.5 rounded-full px-4 py-2 min-w-0 text-left cursor-pointer hover:shadow-md transition-all duration-300"
+                  animate={{
+                    backgroundColor: ghostMode ? "#2D2D2D" : "#ffffff",
+                    borderColor: ghostMode ? "#FF6B35" : AFLINO_BLUE,
                     boxShadow: ghostMode
-                      ? "0 0 0 3px rgba(255,107,53,0.08)"
+                      ? "0 0 0 3px rgba(255,107,53,0.12)"
                       : "0 0 0 3px rgba(26,115,232,0.08)",
+                  }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    border: `1.5px solid ${ghostMode ? "#FF6B35" : AFLINO_BLUE}`,
                   }}
                 >
                   <ShieldCheck
                     size={20}
                     style={{
-                      color: "#22c55e",
-                      filter: "drop-shadow(0 0 6px rgba(34,197,94,0.7))",
+                      color: ghostMode ? "#FF6B35" : "#22c55e",
+                      filter: ghostMode
+                        ? "drop-shadow(0 0 6px rgba(255,107,53,0.7))"
+                        : "drop-shadow(0 0 6px rgba(34,197,94,0.7))",
                       flexShrink: 0,
+                      transition: "color 0.3s, filter 0.3s",
                     }}
                   />
+                  {ghostMode && (
+                    <span
+                      className="text-base leading-none flex-shrink-0"
+                      role="img"
+                      aria-label="Ghost Mode Active"
+                    >
+                      🔥
+                    </span>
+                  )}
                   <span
-                    className="text-sm font-semibold text-gray-800 truncate"
+                    className="text-sm font-semibold truncate transition-colors duration-300"
+                    style={{ color: ghostMode ? "#f3f4f6" : "#1f2937" }}
                     title={activeTab.url}
                   >
                     {extractDomain(activeTab.url)}
                   </span>
-                </button>
+                </motion.button>
 
                 {/* Right action cluster */}
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -189,6 +247,7 @@ export function Header({
                     <Plus size={22} />
                   </button>
                   {FlameButton}
+                  {LeafButton}
                   {GlobeButton}
                   {TabCounter}
                   {MenuButton}
@@ -205,8 +264,8 @@ export function Header({
               >
                 {/* Brand name */}
                 <div className="flex-1">
-                  <span
-                    className="text-xl font-black tracking-tight select-none"
+                  <motion.span
+                    className="text-xl font-black tracking-tight select-none inline-block"
                     style={{
                       background:
                         "linear-gradient(90deg, #1A73E8 0%, #0d47a1 100%)",
@@ -214,9 +273,33 @@ export function Header({
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
                     }}
+                    animate={
+                      ghostMode
+                        ? {
+                            filter: [
+                              "drop-shadow(0 0 4px rgba(255,69,0,0))",
+                              "drop-shadow(0 0 8px rgba(255,69,0,0.8))",
+                              "drop-shadow(0 0 4px rgba(255,69,0,0))",
+                            ],
+                            scale: [1, 1.02, 1],
+                          }
+                        : {
+                            filter: "drop-shadow(0 0 0px transparent)",
+                            scale: 1,
+                          }
+                    }
+                    transition={
+                      ghostMode
+                        ? {
+                            duration: 2.5,
+                            repeat: Number.POSITIVE_INFINITY,
+                            ease: "easeInOut",
+                          }
+                        : { duration: 0.3 }
+                    }
                   >
                     Aflino
-                  </span>
+                  </motion.span>
                 </div>
 
                 {/* Right cluster */}
@@ -233,6 +316,7 @@ export function Header({
                     A
                   </div>
                   {FlameButton}
+                  {LeafButton}
                   {GlobeButton}
                   {TabCounter}
                   {MenuButton}

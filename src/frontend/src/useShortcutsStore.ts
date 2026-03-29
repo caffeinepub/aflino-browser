@@ -241,6 +241,7 @@ interface ShortcutsState extends MultiEngineApiConfig {
   voiceCameraEnabled: boolean;
   searchEngine: SearchEngine;
   jsEnabled: boolean;
+  dataSaver: boolean;
   searchCount: number;
   partnerTrackingId: string;
   // Bookmarks & History
@@ -328,6 +329,7 @@ interface ShortcutsState extends MultiEngineApiConfig {
   setVoiceCameraEnabled: (enabled: boolean) => void;
   setSearchEngine: (engine: SearchEngine) => void;
   setJsEnabled: (enabled: boolean) => void;
+  setDataSaver: (v: boolean) => void;
   setMultiEngineConfig: (config: Partial<MultiEngineApiConfig>) => void;
   setSearchApiConfig: (
     config: Partial<{
@@ -421,6 +423,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
       voiceCameraEnabled: true,
       searchEngine: "google",
       jsEnabled: true,
+      dataSaver: false,
       searchCount: 0,
       googleSearchApiKey: "",
       searchEngineCx: "",
@@ -526,6 +529,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
       setVoiceCameraEnabled: (enabled) => set({ voiceCameraEnabled: enabled }),
       setSearchEngine: (engine) => set({ searchEngine: engine }),
       setJsEnabled: (enabled) => set({ jsEnabled: enabled }),
+      setDataSaver: (v) => set({ dataSaver: v }),
       setMultiEngineConfig: (config) =>
         set((state) => ({ ...state, ...config })),
       setSearchApiConfig: (config) =>

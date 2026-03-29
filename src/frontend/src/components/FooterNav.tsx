@@ -9,6 +9,7 @@ interface FooterNavProps {
   enableUserProfiles?: boolean;
   splitViewActive?: boolean;
   onToggleSplitView?: () => void;
+  ghostMode?: boolean;
 }
 
 export function FooterNav({
@@ -20,6 +21,7 @@ export function FooterNav({
   enableUserProfiles = true,
   splitViewActive = false,
   onToggleSplitView,
+  ghostMode = false,
 }: FooterNavProps) {
   const items = [
     { icon: Home, label: "Home", id: "home", action: onHome },
@@ -46,6 +48,15 @@ export function FooterNav({
     <footer
       data-ocid="footer.panel"
       className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]"
+      style={
+        ghostMode
+          ? {
+              borderTop: "2px solid #FF4500",
+              boxShadow:
+                "0 -2px 16px rgba(255,69,0,0.18), 0 -1px 4px rgba(255,69,0,0.08)",
+            }
+          : undefined
+      }
     >
       <nav className="flex items-center justify-around px-2 py-2 pb-2">
         {items.map(({ icon: Icon, label, action, id }) => {

@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  Leaf,
   LogOut,
   Mail,
   Search,
@@ -243,6 +244,8 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
     vpnDetected,
     detectedCountry,
     countryConfigs,
+    dataSaver,
+    setDataSaver,
   } = useShortcutsStore();
   const { canInstall, isInstalled, triggerInstall } = usePwaInstall();
 
@@ -599,6 +602,72 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
                   </p>
                 </div>
               )}
+
+              {/* Browser Settings */}
+              <div className="px-4 pb-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+                  Browser Settings
+                </p>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-3 px-4 py-4">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: dataSaver
+                          ? "rgba(34,197,94,0.12)"
+                          : "#f3f4f6",
+                      }}
+                    >
+                      <Leaf
+                        size={18}
+                        style={{ color: dataSaver ? "#16a34a" : "#9ca3af" }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">
+                        Data Saver
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Reduces data usage by blocking heavy images
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      data-ocid="profile.data_saver.toggle"
+                      role="switch"
+                      aria-checked={dataSaver}
+                      onClick={() => {
+                        const next = !dataSaver;
+                        setDataSaver(next);
+                        toast(
+                          next
+                            ? "🍃 Data Saver Activated"
+                            : "Data Saver Disabled",
+                          {
+                            style: next
+                              ? {
+                                  background: "#f0fdf4",
+                                  borderLeft: "4px solid #16a34a",
+                                }
+                              : undefined,
+                          },
+                        );
+                      }}
+                      className="relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-300"
+                      style={{ background: dataSaver ? "#16a34a" : "#d1d5db" }}
+                    >
+                      <span
+                        className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+                        style={{
+                          transform: dataSaver
+                            ? "translateX(1.25rem)"
+                            : "translateX(0.125rem)",
+                        }}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               {/* Quick Links */}
               <div className="px-4 pb-8">

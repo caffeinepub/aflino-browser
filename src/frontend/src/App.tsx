@@ -83,6 +83,8 @@ function BrowserApp() {
     googleSearchApiKey,
     searchEngineCx,
     inAppSearchEnabled,
+    dataSaver,
+    setDataSaver,
   } = useShortcutsStore();
 
   const hasApiKeys = !!googleSearchApiKey && !!searchEngineCx;
@@ -109,20 +111,38 @@ function BrowserApp() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [ghostMode]);
 
+  useEffect(() => {
+    if (dataSaver) {
+      document.body.classList.add("data-saver-mode");
+    } else {
+      document.body.classList.remove("data-saver-mode");
+    }
+  }, [dataSaver]);
+
   const handleToggleGhostMode = useCallback(() => {
     setGhostMode((prev) => {
       const next = !prev;
       if (next) {
-        toast("🔥 Ghost Mode ON — browsing privately", {
-          style: { background: "#fff7f3", borderLeft: "4px solid #FF6B35" },
+        toast("🔥 Ghost Mode Active: History & Cookies are now private.", {
+          style: { background: "#fff7f3", borderLeft: "4px solid #FF4500" },
         });
       } else {
         sessionStorage.clear();
-        toast("Ghost Mode OFF — session data cleared");
+        toast("Ghost Mode Disabled: Returning to standard browsing.");
       }
       return next;
     });
   }, []);
+
+  const handleToggleDataSaver = useCallback(() => {
+    const next = !dataSaver;
+    setDataSaver(next);
+    toast(next ? "🍃 Data Saver Activated" : "Data Saver Disabled", {
+      style: next
+        ? { background: "#f0fdf4", borderLeft: "4px solid #16a34a" }
+        : undefined,
+    });
+  }, [dataSaver, setDataSaver]);
 
   const executeInAppSearch = useCallback(
     async (query: string): Promise<boolean> => {
@@ -307,6 +327,8 @@ function BrowserApp() {
         onOpenOmnibox={() => setShowOmnibox(true)}
         ghostMode={ghostMode}
         onToggleGhostMode={handleToggleGhostMode}
+        dataSaver={dataSaver}
+        onToggleDataSaver={handleToggleDataSaver}
       />
 
       {/* Ghost Mode banner */}
@@ -352,6 +374,7 @@ function BrowserApp() {
         enableUserProfiles={enableUserProfiles}
         splitViewActive={splitViewActive}
         onToggleSplitView={handleToggleSplitView}
+        ghostMode={ghostMode}
       />
 
       {showTabSwitcher && (

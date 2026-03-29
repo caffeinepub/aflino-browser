@@ -1,9 +1,10 @@
-import { Camera, Mic, X } from "lucide-react";
+import { Camera, ClipboardCopy, Mic, ScanText, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTranslation } from "../i18n/useTranslation";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
+import { DataSaverImage } from "./DataSaverImage";
 import { DiscoverFeed } from "./DiscoverFeed";
 import { JumpBackSection } from "./JumpBackSection";
 import { SearchResultsPage } from "./SearchResultsPage";
@@ -308,6 +309,9 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
   const [searchVal, setSearchVal] = useState("");
   const [listening, setListening] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [ocrExtractedText, setOcrExtractedText] = useState("");
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const ocrInputRef = useRef<HTMLInputElement>(null);
   const [searchResults, setSearchResults] = useState<Array<{
     title: string;
     link: string;
@@ -517,6 +521,36 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
     }
   };
 
+  const handleOcrImageSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOcrProcessing(true);
+    toast("🔍 Extracting text...", { duration: 2000 });
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("eng");
+      const {
+        data: { text },
+      } = await worker.recognize(file);
+      await worker.terminate();
+      const extracted = text.trim();
+      if (extracted) {
+        setSearchVal(extracted);
+        setOcrExtractedText(extracted);
+        toast("✅ Text Extracted Successfully");
+      } else {
+        toast("No text detected in image");
+      }
+    } catch {
+      toast("Failed to extract text from image");
+    } finally {
+      setOcrProcessing(false);
+      if (ocrInputRef.current) ocrInputRef.current.value = "";
+    }
+  };
+
   const carouselRows: {
     key: keyof typeof categoryVisibility;
     items: typeof aflinoApps;
@@ -610,10 +644,59 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
               >
                 <Camera size={17} />
               </button>
+              <button
+                type="button"
+                data-ocid="dashboard.ocr.button"
+                title="Extract text from image (OCR)"
+                onClick={() => ocrInputRef.current?.click()}
+                className={[
+                  "text-gray-400 hover:text-green-600 transition-colors",
+                  ocrProcessing ? "animate-pulse text-green-500" : "",
+                ].join(" ")}
+                disabled={ocrProcessing}
+              >
+                <ScanText size={17} />
+              </button>
+              <input
+                ref={ocrInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleOcrImageSelect}
+              />
             </div>
           )}
         </div>
 
+        {/* OCR Copy Button */}
+        {ocrExtractedText && !ocrProcessing && (
+          <div className="flex items-center gap-2 mt-1 px-1">
+            <span className="text-xs text-gray-500 truncate flex-1">
+              {ocrExtractedText.slice(0, 40)}
+              {ocrExtractedText.length > 40 ? "…" : ""}
+            </span>
+            <button
+              type="button"
+              data-ocid="dashboard.ocr.copy_button"
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(ocrExtractedText)
+                  .then(() => toast("Copied to clipboard!"));
+              }}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+            >
+              <ClipboardCopy size={13} />
+              Copy
+            </button>
+            <button
+              type="button"
+              onClick={() => setOcrExtractedText("")}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
         {/* Carousel Rows — driven by store visibility & titles */}
         <div className="w-full flex flex-col gap-3 mt-2">
           {carouselRows.map(

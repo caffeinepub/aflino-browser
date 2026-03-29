@@ -84,3 +84,12 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Data Saver Mode */
+.data-saver-mode img[src$=".gif"],
+.data-saver-mode img[src*=".gif?"] {
+  display: none !important;
+}
+.data-saver-mode video[autoplay] {
+  pointer-events: none;
+}
