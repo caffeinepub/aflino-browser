@@ -11,12 +11,15 @@ import {
   Clock,
   Download,
   FileText,
+  Flame,
   Globe,
   KeyRound,
   Languages,
+  Leaf,
   Monitor,
   Moon,
   MoreHorizontal,
+  Music,
   Printer,
   RefreshCw,
   Search,
@@ -39,6 +42,14 @@ interface PocketMenuProps {
   onNavigateBack?: () => void;
   onNavigateForward?: () => void;
   onRefresh?: () => void;
+  ghostMode?: boolean;
+  onToggleGhostMode?: () => void;
+  dataSaver?: boolean;
+  onToggleDataSaver?: () => void;
+  zenModeActive?: boolean;
+  onToggleZenMode?: () => void;
+  mediaHubVisible?: boolean;
+  onToggleMediaHub?: () => void;
 }
 
 function SectionLabel({ label }: { label: string }) {
@@ -138,6 +149,14 @@ export function PocketMenu({
   onNavigateBack,
   onNavigateForward,
   onRefresh,
+  ghostMode = false,
+  onToggleGhostMode,
+  dataSaver = false,
+  onToggleDataSaver,
+  zenModeActive = false,
+  onToggleZenMode,
+  mediaHubVisible = false,
+  onToggleMediaHub,
 }: PocketMenuProps) {
   const [adBlocker, setAdBlocker] = useState(true);
   const [desktopSite, setDesktopSite] = useState(false);
@@ -208,6 +227,157 @@ export function PocketMenu({
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto">
+          {/* === Explore Categories (moved from homepage header) === */}
+          <SectionLabel label="Explore Categories" />
+
+          <button
+            type="button"
+            onClick={onToggleGhostMode}
+            className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                style={{
+                  background: ghostMode ? "rgba(255,107,53,0.12)" : "#f3f4f6",
+                }}
+              >
+                <Flame
+                  size={13}
+                  style={{
+                    color: ghostMode ? "#FF6B35" : "#6b7280",
+                    filter: ghostMode
+                      ? "drop-shadow(0 0 4px rgba(255,107,53,0.7))"
+                      : "none",
+                  }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-700">
+                Ghost Mode
+              </span>
+              {ghostMode && (
+                <span className="text-[8px] font-bold px-1 py-0.5 rounded-full bg-orange-100 text-orange-600 uppercase tracking-wide">
+                  ON
+                </span>
+              )}
+            </div>
+            <Toggle
+              value={ghostMode}
+              onChange={() => onToggleGhostMode?.()}
+              color="#FF6B35"
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleDataSaver}
+            className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                style={{
+                  background: dataSaver ? "rgba(34,197,94,0.12)" : "#f3f4f6",
+                }}
+              >
+                <Leaf
+                  size={13}
+                  style={{
+                    color: dataSaver ? "#16a34a" : "#6b7280",
+                    filter: dataSaver
+                      ? "drop-shadow(0 0 4px rgba(22,163,74,0.6))"
+                      : "none",
+                  }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-700">
+                Data Saver
+              </span>
+              {dataSaver && (
+                <span className="text-[8px] font-bold px-1 py-0.5 rounded-full bg-green-100 text-green-700 uppercase tracking-wide">
+                  ON
+                </span>
+              )}
+            </div>
+            <Toggle
+              value={dataSaver}
+              onChange={() => onToggleDataSaver?.()}
+              color="#16a34a"
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleZenMode}
+            className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                style={{
+                  background: zenModeActive
+                    ? "rgba(26,115,232,0.12)"
+                    : "#f3f4f6",
+                }}
+              >
+                <BookOpen
+                  size={13}
+                  style={{ color: zenModeActive ? "#1A73E8" : "#6b7280" }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-700">
+                Zen Reader
+              </span>
+              {zenModeActive && (
+                <span className="text-[8px] font-bold px-1 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase tracking-wide">
+                  ON
+                </span>
+              )}
+            </div>
+            <Toggle
+              value={zenModeActive}
+              onChange={() => onToggleZenMode?.()}
+              color="#1A73E8"
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleMediaHub}
+            className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                style={{
+                  background: mediaHubVisible
+                    ? "rgba(26,115,232,0.12)"
+                    : "#f3f4f6",
+                }}
+              >
+                <Music
+                  size={13}
+                  style={{ color: mediaHubVisible ? "#1A73E8" : "#6b7280" }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-700">
+                Media Hub
+              </span>
+              {mediaHubVisible && (
+                <span className="text-[8px] font-bold px-1 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase tracking-wide">
+                  ON
+                </span>
+              )}
+            </div>
+            <Toggle
+              value={mediaHubVisible}
+              onChange={() => onToggleMediaHub?.()}
+              color="#1A73E8"
+            />
+          </button>
+
+          <Divider />
+
           {/* === Account & Security === */}
           <SectionLabel label={t.accountSecurity} />
           <MenuItem icon={UserCircle} label={t.signIn} iconColor="#1A73E8" />

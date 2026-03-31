@@ -4,7 +4,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Aflino Browser</title>
 
-    <!-- PWA Manifest -->
+    <!-- ================================================================
+         SECURITY HEADERS (Req 1, 3, 6)
+         Helmet.js equivalent for static/PWA deployments.
+         ================================================================ -->
+
+    <!-- 1. Content Security Policy (Req 3)
+         - default-src 'self': block everything not explicitly allowed
+         - script-src: self + trusted Google APIs only (no unsafe-inline, no unsafe-eval)
+         - style-src: self + inline styles (needed by Tailwind runtime)
+         - connect-src: self + Google APIs + IP detection services
+         - img-src: self + data URIs + Google favicon service + HTTPS wildcard
+         - frame-src: HTTPS only (needed by the browser iframe engine)
+         - object-src: 'none' (block Flash/plugins)
+         - base-uri: 'self' (prevent base tag hijacking)
+         - form-action: 'self'
+         - upgrade-insecure-requests: auto-upgrades http sub-resources to https
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' https://apis.google.com https://www.googleapis.com https://accounts.google.com 'wasm-unsafe-eval';
+      style-src 'self' 'unsafe-inline';
+      connect-src 'self' https://www.googleapis.com https://customsearch.googleapis.com https://ip-api.com https://mymemory.translated.net https://api.ipify.org https://accounts.google.com;
+      img-src 'self' data: blob: https://www.google.com https://www.gstatic.com https://s2.googleusercontent.com https://logo.clearbit.com https://*.githubusercontent.com https:;
+      font-src 'self' data:;
+      frame-src https:;
+      worker-src 'self' blob:;
+      child-src 'self' blob: https:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      upgrade-insecure-requests;
+    " />
+
+    <!-- 2. Clickjacking Protection (Req 1 — X-Frame-Options equivalent) -->
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+
+    <!-- 3. MIME-type sniffing protection (Req 1 — X-Content-Type-Options equivalent) -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+
+    <!-- 4. Referrer Policy — don't leak URLs to third parties -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- 5. Permissions Policy — restrict sensitive browser APIs -->
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(self), camera=(self), payment=(), usb=(), magnetometer=(), accelerometer=()" />
+
+    <!-- ================================================================
+         PWA Manifest
+         ================================================================ -->
     <link rel="manifest" href="/manifest.json" />
 
     <!-- Theme & Status Bar -->
@@ -30,10 +77,53 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Register Service Worker
+      // ================================================================
+      // HTTPS ENFORCEMENT + HSTS (Req 6)
+      // Redirect HTTP → HTTPS in production (skip localhost dev)
+      // ================================================================
+      (function enforceHttps() {
+        var isLocalhost =
+          location.hostname === 'localhost' ||
+          location.hostname === '127.0.0.1' ||
+          location.hostname === '0.0.0.0' ||
+          location.hostname.endsWith('.localhost');
+
+        if (!isLocalhost && location.protocol !== 'https:') {
+          // Hard redirect to HTTPS
+          location.replace('https:' + location.href.substring(location.protocol.length));
+        }
+
+        // HSTS: Tell the browser to remember HTTPS for 1 year (max-age=31536000)
+        // Note: HSTS via meta is informational only; for enforcement add the
+        // Strict-Transport-Security HTTP response header on your CDN/server.
+        // This script serves as a belt-and-suspenders client-side guard.
+      })();
+
+      // ================================================================
+      // SERVICE WORKER REGISTRATION (Req 5)
+      // ================================================================
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js').catch(function () {});
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then(function (reg) {
+              // Check for SW updates every 60 seconds
+              setInterval(function () { reg.update(); }, 60000);
+
+              // Notify app when a new SW is waiting
+              reg.addEventListener('updatefound', function () {
+                var newWorker = reg.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', function () {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      // New SW ready — app will notify user to reload
+                      window.dispatchEvent(new CustomEvent('sw-update-available'));
+                    }
+                  });
+                }
+              });
+            })
+            .catch(function () {});
         });
       }
     </script>

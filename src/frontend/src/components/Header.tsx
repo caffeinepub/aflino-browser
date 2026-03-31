@@ -429,7 +429,7 @@ export function Header({
                   </motion.span>
                 </div>
 
-                {/* Right cluster */}
+                {/* Right cluster — Homepage: Avatar, Language, Tabs, Menu only */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 cursor-pointer ring-2 ring-white"
@@ -442,46 +442,6 @@ export function Header({
                   >
                     A
                   </div>
-                  {/* Zen Reader Mode */}
-                  <button
-                    type="button"
-                    data-ocid="header.zen_mode.toggle"
-                    onClick={onToggleZenMode}
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
-                    style={{
-                      background: zenModeActive
-                        ? "rgba(26,115,232,0.12)"
-                        : "transparent",
-                    }}
-                    title={zenModeActive ? "Exit Zen Mode" : "Zen Reader Mode"}
-                  >
-                    <BookOpen
-                      size={16}
-                      style={{ color: zenModeActive ? "#1A73E8" : "#6b7280" }}
-                    />
-                  </button>
-                  {/* Media Hub */}
-                  <button
-                    type="button"
-                    data-ocid="header.media_hub.toggle"
-                    onClick={onToggleMediaHub}
-                    className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 active:scale-90"
-                    style={{
-                      background: mediaHubVisible
-                        ? "rgba(26,115,232,0.12)"
-                        : "transparent",
-                    }}
-                    title={
-                      mediaHubVisible ? "Close Media Hub" : "Open Media Hub"
-                    }
-                  >
-                    <Music
-                      size={16}
-                      style={{ color: mediaHubVisible ? "#1A73E8" : "#6b7280" }}
-                    />
-                  </button>
-                  {FlameButton}
-                  {LeafButton}
                   {GlobeButton}
                   {TabCounter}
                   {MenuButton}

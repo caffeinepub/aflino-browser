@@ -9,6 +9,7 @@ import {
   Palette,
   Settings,
   Shield,
+  ShieldCheck,
   Users,
   X,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { AnalyticsSection } from "./AnalyticsSection";
 import { DomainPartnersSection } from "./DomainPartnersSection";
 import { GlobalControlsSection } from "./GlobalControlsSection";
 import { ImageCropperModal } from "./ImageCropperModal";
+import { SecurityStatusPanel } from "./SecurityStatusPanel";
 import { ShortcutsManager } from "./ShortcutsManager";
 import { UserDatabaseSection } from "./UserDatabaseSection";
 
@@ -34,7 +36,8 @@ type Section =
   | "languages"
   | "users"
   | "wallet"
-  | "globalControls";
+  | "globalControls"
+  | "security";
 
 const navItems: {
   id: Section;
@@ -56,6 +59,11 @@ const navItems: {
     id: "globalControls",
     label: "Global Controls",
     icon: <MapPin size={18} />,
+  },
+  {
+    id: "security",
+    label: "Security",
+    icon: <ShieldCheck size={18} />,
   },
 ];
 
@@ -555,15 +563,23 @@ function SettingsSection() {
                 Google Custom Search API Key
               </label>
               <input
-                type="text"
-                placeholder="Enter your API key here..."
-                value={googleSearchApiKey}
+                type="password"
+                placeholder="Stored securely — enter new key to update"
+                value=""
                 id="me-google-api-key"
                 onChange={(e) =>
                   setMultiEngineConfig({ googleSearchApiKey: e.target.value })
                 }
                 className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
               />
+              {googleSearchApiKey && (
+                <p className="text-xs text-gray-400 flex items-center gap-1">
+                  🔒 Keys are obfuscated in storage. Last 4:{" "}
+                  <code className="font-mono font-bold text-gray-600">
+                    {googleSearchApiKey.slice(-4)}
+                  </code>
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label
@@ -1106,6 +1122,7 @@ export function AdminDashboard() {
           {activeSection === "users" && <UserDatabaseSection />}
           {activeSection === "wallet" && <DomainPartnersSection />}
           {activeSection === "globalControls" && <GlobalControlsSection />}
+          {activeSection === "security" && <SecurityStatusPanel />}
         </main>
 
         {/* Footer */}

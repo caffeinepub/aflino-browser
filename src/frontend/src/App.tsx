@@ -24,6 +24,7 @@ import { useGeoDetection } from "./hooks/useGeoDetection";
 import { useEfficiencyStore } from "./useShortcutsStore";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "./useShortcutsStore";
 import { isPwaMode } from "./utils/pwaUtils";
+import { checkRateLimit, sanitizeInput, sanitizeUrl } from "./utils/security";
 
 export type Tab = {
   id: string;
@@ -303,22 +304,38 @@ function BrowserApp() {
         currentUser,
       } = store;
       const userType = currentUser ? "Logged-in" : "Guest";
-      recordSearch(query, searchEngine, userType);
+      const sanitizedQuery = sanitizeInput(query);
+      recordSearch(sanitizedQuery, searchEngine, userType);
 
       if (enabled && searchEngine === "google" && apiKey && cx) {
-        setSearchResultsOverlay({ query, results: [], loading: true });
+        if (!checkRateLimit("google_search")) {
+          toast.error(
+            "Too many searches. Please wait a moment before trying again.",
+            { duration: 3000 },
+          );
+          return false;
+        }
+        setSearchResultsOverlay({
+          query: sanitizedQuery,
+          results: [],
+          loading: true,
+        });
         try {
           const res = await fetch(
-            `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query)}`,
+            `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(sanitizedQuery)}`,
           );
           const data = await res.json();
           setSearchResultsOverlay({
-            query,
+            query: sanitizedQuery,
             results: data.items ?? [],
             loading: false,
           });
         } catch {
-          setSearchResultsOverlay({ query, results: [], loading: false });
+          setSearchResultsOverlay({
+            query: sanitizedQuery,
+            results: [],
+            loading: false,
+          });
         }
         return true;
       }
@@ -336,12 +353,13 @@ function BrowserApp() {
 
   const loadUrl = useCallback(
     (url: string) => {
+      const safeUrl = sanitizeUrl(url);
       setTabs((prev) =>
         prev.map((t) =>
           t.id === activeTabId
             ? {
                 ...t,
-                url,
+                url: safeUrl,
                 title: url.replace(/^https?:\/\//, "").split("/")[0],
                 blocked: false,
                 lastActiveAt: Date.now(),
@@ -667,6 +685,14 @@ function BrowserApp() {
             isWebsiteView={activeTab.url !== ""}
             onNavigateBack={goHome}
             onRefresh={() => navigateTo(activeTab.url)}
+            ghostMode={ghostMode}
+            onToggleGhostMode={handleToggleGhostMode}
+            dataSaver={dataSaver}
+            onToggleDataSaver={handleToggleDataSaver}
+            zenModeActive={zenModeActive}
+            onToggleZenMode={() => setZenModeActive((v) => !v)}
+            mediaHubVisible={mediaHubVisible}
+            onToggleMediaHub={() => setMediaHubVisible((v) => !v)}
           />
         )}
         {showOmnibox && (
@@ -751,6 +777,18 @@ export default function App() {
       clearTimeout(logoTimer);
       window.removeEventListener("appinstalled", onInstalled);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleSwUpdate = () => {
+      toast.info("🔄 Aflino has been updated. Reload to apply.", {
+        duration: 0,
+        action: { label: "Reload", onClick: () => window.location.reload() },
+      });
+    };
+    window.addEventListener("sw-update-available", handleSwUpdate);
+    return () =>
+      window.removeEventListener("sw-update-available", handleSwUpdate);
   }, []);
 
   if (isAdmin) {
