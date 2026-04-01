@@ -459,44 +459,100 @@ function AdBlockToggle() {
     const stored = localStorage.getItem("aflino_adblock");
     return stored === null ? false : stored === "true";
   });
+  const [toast, setToast] = useState<{
+    message: string;
+    visible: boolean;
+    variant: "blue" | "grey";
+  }>({ message: "", visible: false, variant: "blue" });
+
+  const showToast = (message: string, variant: "blue" | "grey") => {
+    setToast({ message, visible: true, variant });
+    setTimeout(
+      () => setToast({ message: "", visible: false, variant: "blue" }),
+      2500,
+    );
+  };
 
   const toggle = () => {
     const next = !adBlockEnabled;
     setAdBlockEnabled(next);
     localStorage.setItem("aflino_adblock", String(next));
+    showToast(
+      next ? "Ad Blocker enabled" : "Ad Blocker disabled",
+      next ? "blue" : "grey",
+    );
   };
 
   return (
-    <div className="flex items-start gap-3 px-4 py-4">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
-        <Shield size={18} className="text-gray-400" />
+    <>
+      <style>
+        {
+          "@keyframes aflino-toggle-toast-in { from { opacity:0; transform:translateX(-50%) translateY(8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }"
+        }
+      </style>
+      <div className="flex items-start gap-3 px-4 py-4">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+          <Shield size={18} className="text-gray-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-800">Ad Blocker</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Block ads while browsing
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
+            Note: Blocking ads may affect the loading speed of some websites.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={adBlockEnabled}
+          onClick={toggle}
+          data-ocid="settings.adblock.toggle"
+          className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
+          style={{ background: adBlockEnabled ? "#6b7280" : "#d1d5db" }}
+        >
+          <span
+            className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+            style={{
+              transform: adBlockEnabled
+                ? "translateX(1.25rem)"
+                : "translateX(0.125rem)",
+            }}
+          />
+        </button>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-800">Ad Blocker</p>
-        <p className="text-xs text-gray-400 mt-0.5">Block ads while browsing</p>
-        <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
-          Note: Blocking ads may affect the loading speed of some websites.
-        </p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={adBlockEnabled}
-        onClick={toggle}
-        data-ocid="settings.adblock.toggle"
-        className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
-        style={{ background: adBlockEnabled ? "#6b7280" : "#d1d5db" }}
-      >
-        <span
-          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+      {toast.visible && (
+        <div
           style={{
-            transform: adBlockEnabled
-              ? "translateX(1.25rem)"
-              : "translateX(0.125rem)",
+            position: "fixed",
+            bottom: "72px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            animation: "aflino-toggle-toast-in 0.25s ease",
+            background:
+              toast.variant === "blue"
+                ? "rgba(26,115,232,0.15)"
+                : "rgba(107,114,128,0.15)",
+            border:
+              toast.variant === "blue"
+                ? "1px solid rgba(26,115,232,0.3)"
+                : "1px solid rgba(107,114,128,0.3)",
+            backdropFilter: "blur(12px)",
+            borderRadius: "9999px",
+            padding: "8px 16px",
+            fontSize: "14px",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            color: toast.variant === "blue" ? "#1A73E8" : "#6b7280",
           }}
-        />
-      </button>
-    </div>
+        >
+          {toast.message}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -504,47 +560,97 @@ function BlockCookiesToggle() {
   const [enabled, setEnabled] = useState(() => {
     return localStorage.getItem("aflino_block_cookies") === "true";
   });
+  const [toast, setToast] = useState<{
+    message: string;
+    visible: boolean;
+    variant: "blue" | "grey";
+  }>({ message: "", visible: false, variant: "blue" });
+
+  const showToast = (message: string, variant: "blue" | "grey") => {
+    setToast({ message, visible: true, variant });
+    setTimeout(
+      () => setToast({ message: "", visible: false, variant: "blue" }),
+      2500,
+    );
+  };
 
   const toggle = () => {
     const next = !enabled;
     setEnabled(next);
     localStorage.setItem("aflino_block_cookies", String(next));
-    // Signal to the app layer; actual iframe enforcement is handled where webviews are rendered
     window.dispatchEvent(
       new CustomEvent("aflino:block-cookies", { detail: next }),
+    );
+    showToast(
+      next ? "Third-party cookies blocked" : "Third-party cookies allowed",
+      next ? "blue" : "grey",
     );
   };
 
   return (
-    <div className="flex items-start gap-3 px-4 py-4 border-t border-gray-100">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
-        <Cookie size={18} className="text-gray-400" />
+    <>
+      <div className="flex items-start gap-3 px-4 py-4 border-t border-gray-100">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+          <Cookie size={18} className="text-gray-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-800">
+            Block Third-Party Cookies
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Prevent cross-site cookie tracking
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          onClick={toggle}
+          data-ocid="settings.block_cookies.toggle"
+          className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
+          style={{ background: enabled ? "#6b7280" : "#d1d5db" }}
+        >
+          <span
+            className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+            style={{
+              transform: enabled
+                ? "translateX(1.25rem)"
+                : "translateX(0.125rem)",
+            }}
+          />
+        </button>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-800">
-          Block Third-Party Cookies
-        </p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          Prevent cross-site cookie tracking
-        </p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={toggle}
-        data-ocid="settings.block_cookies.toggle"
-        className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
-        style={{ background: enabled ? "#6b7280" : "#d1d5db" }}
-      >
-        <span
-          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+      {toast.visible && (
+        <div
           style={{
-            transform: enabled ? "translateX(1.25rem)" : "translateX(0.125rem)",
+            position: "fixed",
+            bottom: "72px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            animation: "aflino-toggle-toast-in 0.25s ease",
+            background:
+              toast.variant === "blue"
+                ? "rgba(26,115,232,0.15)"
+                : "rgba(107,114,128,0.15)",
+            border:
+              toast.variant === "blue"
+                ? "1px solid rgba(26,115,232,0.3)"
+                : "1px solid rgba(107,114,128,0.3)",
+            backdropFilter: "blur(12px)",
+            borderRadius: "9999px",
+            padding: "8px 16px",
+            fontSize: "14px",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            color: toast.variant === "blue" ? "#1A73E8" : "#6b7280",
           }}
-        />
-      </button>
-    </div>
+        >
+          {toast.message}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -552,6 +658,19 @@ function DisableJavaScriptToggle() {
   const [enabled, setEnabled] = useState(() => {
     return localStorage.getItem("aflino_disable_js") === "true";
   });
+  const [toast, setToast] = useState<{
+    message: string;
+    visible: boolean;
+    variant: "blue" | "amber";
+  }>({ message: "", visible: false, variant: "blue" });
+
+  const showToast = (message: string, variant: "blue" | "amber") => {
+    setToast({ message, visible: true, variant });
+    setTimeout(
+      () => setToast({ message: "", visible: false, variant: "blue" }),
+      2500,
+    );
+  };
 
   const toggle = () => {
     const next = !enabled;
@@ -560,43 +679,81 @@ function DisableJavaScriptToggle() {
     window.dispatchEvent(
       new CustomEvent("aflino:disable-js", { detail: next }),
     );
+    showToast(
+      next ? "JavaScript disabled" : "JavaScript enabled",
+      next ? "amber" : "blue",
+    );
   };
 
   return (
-    <div className="flex items-start gap-3 px-4 py-4 border-t border-gray-100">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
-        <Code2 size={18} className="text-gray-400" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-800">
-          Disable JavaScript
-        </p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          Block script execution in web views
-        </p>
-        {enabled && (
-          <p className="text-[11px] text-amber-500 mt-1.5 leading-relaxed">
-            ⚠️ Disabling JavaScript may break websites.
+    <>
+      <div className="flex items-start gap-3 px-4 py-4 border-t border-gray-100">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+          <Code2 size={18} className="text-gray-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-800">
+            Disable JavaScript
           </p>
-        )}
+          <p className="text-xs text-gray-400 mt-0.5">
+            Block script execution in web views
+          </p>
+          {enabled && (
+            <p className="text-[11px] text-amber-500 mt-1.5 leading-relaxed">
+              ⚠️ Disabling JavaScript may break websites.
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          onClick={toggle}
+          data-ocid="settings.disable_js.toggle"
+          className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
+          style={{ background: enabled ? "#6b7280" : "#d1d5db" }}
+        >
+          <span
+            className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+            style={{
+              transform: enabled
+                ? "translateX(1.25rem)"
+                : "translateX(0.125rem)",
+            }}
+          />
+        </button>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={toggle}
-        data-ocid="settings.disable_js.toggle"
-        className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
-        style={{ background: enabled ? "#6b7280" : "#d1d5db" }}
-      >
-        <span
-          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+      {toast.visible && (
+        <div
           style={{
-            transform: enabled ? "translateX(1.25rem)" : "translateX(0.125rem)",
+            position: "fixed",
+            bottom: "72px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            animation: "aflino-toggle-toast-in 0.25s ease",
+            background:
+              toast.variant === "amber"
+                ? "rgba(245,158,11,0.15)"
+                : "rgba(26,115,232,0.15)",
+            border:
+              toast.variant === "amber"
+                ? "1px solid rgba(245,158,11,0.3)"
+                : "1px solid rgba(26,115,232,0.3)",
+            backdropFilter: "blur(12px)",
+            borderRadius: "9999px",
+            padding: "8px 16px",
+            fontSize: "14px",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+            color: toast.variant === "amber" ? "#D97706" : "#1A73E8",
           }}
-        />
-      </button>
-    </div>
+        >
+          {toast.message}
+        </div>
+      )}
+    </>
   );
 }
 export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {

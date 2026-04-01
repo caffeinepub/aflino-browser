@@ -8,6 +8,7 @@ import {
 } from "../data/insightsArticles";
 import { useTranslation } from "../i18n/useTranslation";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../useShortcutsStore";
+import { incrementSearchCount as trackSearchCount } from "../utils/searchStats";
 import { CleanReaderModal } from "./CleanReaderModal";
 import { DataSaverImage } from "./DataSaverImage";
 import { DiscoverFeed } from "./DiscoverFeed";
@@ -576,6 +577,7 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
         const trackingParam = googlePartnerTrackingId
           ? `&ref=${encodeURIComponent(googlePartnerTrackingId)}`
           : "";
+        if (googlePartnerTrackingId) trackSearchCount();
         const url = `https://www.googleapis.com/customsearch/v1?key=${googleSearchApiKey}&cx=${searchEngineCx}&q=${encodeURIComponent(q)}${trackingParam}`;
         const res = await fetch(url);
         const data = await res.json();
@@ -594,6 +596,7 @@ export function Dashboard({ onNavigate, searchInputRef }: DashboardProps) {
           const tracking = googlePartnerTrackingId
             ? `&ref=${encodeURIComponent(googlePartnerTrackingId)}`
             : "";
+          if (googlePartnerTrackingId) trackSearchCount();
           searchUrl =
             SEARCH_ENGINE_URLS.google + encodeURIComponent(q) + tracking;
         } else if (searchEngine === "bing") {

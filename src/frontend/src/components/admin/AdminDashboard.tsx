@@ -1,6 +1,8 @@
 import {
   BarChart2,
   Check,
+  DollarSign,
+  Download,
   FileText,
   Globe,
   LayoutGrid,
@@ -11,15 +13,17 @@ import {
   Settings,
   Shield,
   ShieldCheck,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LANGUAGES } from "../../i18n/languages";
 import { useLanguageStore } from "../../useLanguageStore";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../../useShortcutsStore";
 import type { SearchEngine } from "../../useShortcutsStore";
+import { getLast24HourCounts, getTodayTotal } from "../../utils/searchStats";
 import { AdminLogin } from "./AdminLogin";
 import { AnalyticsSection } from "./AnalyticsSection";
 import { DomainPartnersSection } from "./DomainPartnersSection";
@@ -40,7 +44,8 @@ type Section =
   | "wallet"
   | "globalControls"
   | "security"
-  | "legalCms";
+  | "legalCms"
+  | "monetization";
 
 const navItems: {
   id: Section;
@@ -72,6 +77,11 @@ const navItems: {
     id: "legalCms",
     label: "Browser Legal Manager",
     icon: <FileText size={18} />,
+  },
+  {
+    id: "monetization",
+    label: "Monetization & API",
+    icon: <DollarSign size={18} />,
   },
 ];
 
@@ -1004,6 +1014,431 @@ function LanguageManagerSection() {
   );
 }
 
+function SparklineChart({ data }: { data: number[] }) {
+  const max = Math.max(...data, 1);
+  const width = 300;
+  const height = 48;
+  const points = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - (v / max) * height;
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const areaPoints = `0,${height} ${data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - (v / max) * height;
+      return `${x},${y}`;
+    })
+    .join(" ")} ${width},${height}`;
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="w-full h-12"
+      preserveAspectRatio="none"
+      aria-label="Search volume sparkline chart"
+      role="img"
+    >
+      <title>Search volume over last 24 hours</title>
+      <defs>
+        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1A73E8" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#1A73E8" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={areaPoints} fill="url(#sparkGrad)" />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="#1A73E8"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MonetizationApiSection() {
+  const {
+    googleSearchApiKey,
+    searchEngineCx,
+    googlePartnerTrackingId,
+    inAppSearchEnabled,
+    setMultiEngineConfig,
+  } = useShortcutsStore();
+
+  const maskApiKey = (key: string) =>
+    key ? `${"•".repeat(Math.max(0, key.length - 4))}${key.slice(-4)}` : "";
+
+  const [searchStats, setSearchStats] = useState<number[]>(() =>
+    getLast24HourCounts(),
+  );
+  const [todayTotal, setTodayTotal] = useState<number>(() => getTodayTotal());
+  const [rpm, setRpm] = useState<number>(() => {
+    const saved = localStorage.getItem("aflino_rpm");
+    return saved ? Number.parseFloat(saved) : 2.5;
+  });
+
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const exportSearchCSV = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const partnerId = localStorage.getItem("aflino_partner_id") || "";
+    const partnerStatus = partnerId ? "Active" : "Not Set";
+    let raw: { date: string; counts: number[] } | null = null;
+    try {
+      const stored = localStorage.getItem("aflino_search_stats");
+      if (stored) raw = JSON.parse(stored);
+    } catch {
+      /* ignore */
+    }
+    const counts = raw?.date === today ? raw.counts : new Array(24).fill(0);
+    const rows = ["Timestamp,Search Count,Partner ID Status"];
+    counts.forEach((count: number, hour: number) => {
+      const ts = `${today} ${String(hour).padStart(2, "0")}:00`;
+      rows.push(`${ts},${count},${partnerStatus}`);
+    });
+    const csv = rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Aflino_Search_Report_${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded");
+  };
+
+  const resetTodayCount = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const fresh = {
+      date: today,
+      counts: new Array(24).fill(0),
+      lastUpdated: Date.now(),
+    };
+    localStorage.setItem("aflino_search_stats", JSON.stringify(fresh));
+    setTodayTotal(0);
+    setSearchStats(new Array(24).fill(0));
+    setShowResetConfirm(false);
+    toast.success("Search count reset.");
+  };
+
+  useEffect(() => {
+    const refresh = () => {
+      setSearchStats(getLast24HourCounts());
+      setTodayTotal(getTodayTotal());
+    };
+    refresh();
+    const timer = setInterval(refresh, 30000);
+    return () => clearInterval(timer);
+  }, []); // refreshKey intentionally omitted — manual refresh in resetTodayCount
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold text-gray-800 mb-1">
+          Monetization & API
+        </h2>
+        <p className="text-sm text-gray-500">
+          Configure Google Custom Search API for in-app results and revenue
+          tracking.
+        </p>
+      </div>
+
+      {/* Partner Tracking Info Banner */}
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3">
+        <DollarSign size={20} className="text-blue-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-blue-800 mb-0.5">
+            Revenue Sharing
+          </p>
+          <p className="text-xs text-blue-600 leading-relaxed">
+            The Partner Tracking ID is automatically appended to all search
+            redirect URLs (as{" "}
+            <code className="bg-blue-100 px-1 rounded font-mono">
+              ?ref=YOUR_ID
+            </code>
+            ), telling search engines that traffic comes from Aflino Browser.
+          </p>
+        </div>
+      </div>
+
+      {/* API Configuration Card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+        <h3 className="text-base font-semibold text-gray-800">
+          Google Custom Search API
+        </h3>
+
+        {/* API Key */}
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="mon-api-key"
+            className="text-sm font-medium text-gray-700"
+          >
+            Google Custom Search API Key
+          </label>
+          <input
+            id="mon-api-key"
+            data-ocid="monetization.api_key.input"
+            type="password"
+            placeholder="Enter API key — stored securely, never displayed"
+            defaultValue=""
+            onChange={(e) =>
+              setMultiEngineConfig({ googleSearchApiKey: e.target.value })
+            }
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+          />
+          {googleSearchApiKey && (
+            <p className="text-xs text-gray-400 flex items-center gap-1">
+              🔒 Key saved. Showing last 4 chars:{" "}
+              <code className="font-mono font-bold text-gray-600">
+                {maskApiKey(googleSearchApiKey)}
+              </code>
+            </p>
+          )}
+        </div>
+
+        {/* CX */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="mon-cx" className="text-sm font-medium text-gray-700">
+            Search Engine ID (CX)
+          </label>
+          <input
+            id="mon-cx"
+            data-ocid="monetization.cx.input"
+            type="text"
+            placeholder="e.g. 017576662512468239146:omuauf_lfve"
+            value={searchEngineCx}
+            onChange={(e) =>
+              setMultiEngineConfig({ searchEngineCx: e.target.value })
+            }
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+          />
+          <p className="text-xs text-gray-400">
+            Get this from{" "}
+            <span className="font-medium text-gray-500">
+              programmablesearchengine.google.com
+            </span>
+          </p>
+        </div>
+
+        {/* Partner Tracking ID */}
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="mon-tracking"
+            className="text-sm font-medium text-gray-700"
+          >
+            Partner Tracking ID
+          </label>
+          <input
+            id="mon-tracking"
+            data-ocid="monetization.tracking_id.input"
+            type="text"
+            placeholder="e.g. aflino-browser-partner-001"
+            value={googlePartnerTrackingId}
+            onChange={(e) =>
+              setMultiEngineConfig({ googlePartnerTrackingId: e.target.value })
+            }
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+          />
+          <p className="text-xs text-gray-400">
+            Appended to all search redirect URLs for revenue-share attribution.
+          </p>
+        </div>
+      </div>
+
+      {/* In-App Results Toggle Card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-800">
+                Show Results Inside Browser
+              </span>
+              <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                Pro
+              </span>
+            </div>
+            <span className="text-xs text-gray-400 leading-relaxed max-w-xs">
+              When ON and API keys are set, search results appear natively
+              inside Aflino instead of redirecting to Google. Falls back to
+              redirect if API key is missing.
+            </span>
+          </div>
+          <Toggle
+            value={inAppSearchEnabled}
+            onChange={() =>
+              setMultiEngineConfig({ inAppSearchEnabled: !inAppSearchEnabled })
+            }
+          />
+        </div>
+
+        {/* Status indicator */}
+        <div
+          className={[
+            "mt-4 px-3 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2",
+            googleSearchApiKey && searchEngineCx
+              ? "bg-green-50 text-green-700"
+              : "bg-amber-50 text-amber-700",
+          ].join(" ")}
+          data-ocid="monetization.api_status.panel"
+        >
+          <div
+            className={[
+              "w-2 h-2 rounded-full shrink-0",
+              googleSearchApiKey && searchEngineCx
+                ? "bg-green-500"
+                : "bg-amber-400",
+            ].join(" ")}
+          />
+          {googleSearchApiKey && searchEngineCx
+            ? "API keys configured — in-app results are ready."
+            : "API Key and CX are required to activate in-app results."}
+        </div>
+      </div>
+
+      {/* Live Revenue Card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-base font-semibold text-gray-800 flex-1">
+            Revenue & Search Analytics
+          </h3>
+          {/* Data management buttons */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={exportSearchCSV}
+              type="button"
+              title="Download report"
+              data-ocid="monetization.revenue.export_button"
+              className="h-7 w-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white/10 text-gray-500 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+            >
+              <Download size={14} />
+            </button>
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              type="button"
+              title="Start fresh for today"
+              data-ocid="monetization.revenue.delete_button"
+              className="h-7 w-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white/10 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+          {/* Live pulse badge */}
+          <div className="flex items-center gap-1.5 bg-green-50 px-2.5 py-1 rounded-full">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+            </span>
+            <span className="text-xs font-semibold text-green-700">Live</span>
+          </div>
+        </div>
+
+        {/* Reset confirmation dialog */}
+        {showResetConfirm && (
+          <div
+            className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3"
+            data-ocid="monetization.revenue.dialog"
+          >
+            <p className="text-sm text-red-800 font-medium">
+              Reset today's search data?
+            </p>
+            <p className="text-xs text-red-600">
+              This cannot be undone. Today's search count will be set to zero.
+            </p>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                data-ocid="monetization.revenue.cancel_button"
+                className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={resetTodayCount}
+                data-ocid="monetization.revenue.confirm_button"
+                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main stats row */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-[#1A73E8] to-[#1557B0] rounded-xl p-4 text-center shadow-sm">
+            <p className="text-3xl font-black text-white">
+              {todayTotal.toLocaleString()}
+            </p>
+            <p className="text-xs text-blue-100 mt-1">Total Searches Today</p>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-4 text-center">
+            <p className="text-3xl font-black text-gray-800">
+              ${((todayTotal / 1000) * rpm).toFixed(2)}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">Estimated Earnings</p>
+          </div>
+        </div>
+
+        {/* Sparkline — last 24 hours */}
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-2">
+            Search Volume — Last 24 Hours
+          </p>
+          <div className="bg-gray-50 rounded-xl p-3">
+            <SparklineChart data={searchStats} />
+          </div>
+          <div className="flex justify-between mt-1 px-1">
+            <span className="text-[10px] text-gray-400">24h ago</span>
+            <span className="text-[10px] text-gray-400">Now</span>
+          </div>
+        </div>
+
+        {/* RPM input */}
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="rpm-input"
+            className="text-sm font-medium text-gray-700"
+          >
+            RPM (Revenue Per Mille)
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500 text-sm font-medium">$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={rpm}
+              onChange={(e) => {
+                const v = Number.parseFloat(e.target.value) || 0;
+                setRpm(v);
+                localStorage.setItem("aflino_rpm", String(v));
+              }}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+              placeholder="e.g. 2.50"
+              id="rpm-input"
+              data-ocid="monetization.rpm.input"
+            />
+          </div>
+          <p className="text-xs text-gray-400">
+            Estimated earnings = (Searches / 1000) × RPM
+          </p>
+        </div>
+
+        {/* Refresh note */}
+        <p className="text-[11px] text-gray-400 text-center">
+          Auto-refreshes every 30 seconds · Data stored locally
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function AdminDashboard() {
   const [authed, setAuthed] = useState(
     () => localStorage.getItem("aflino_admin_auth") === "1",
@@ -1132,6 +1567,7 @@ export function AdminDashboard() {
           {activeSection === "globalControls" && <GlobalControlsSection />}
           {activeSection === "security" && <SecurityStatusPanel />}
           {activeSection === "legalCms" && <LegalCmsSection />}
+          {activeSection === "monetization" && <MonetizationApiSection />}
         </main>
 
         {/* Footer */}
