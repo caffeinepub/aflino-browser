@@ -2,6 +2,8 @@ import {
   ArrowLeft,
   ChevronRight,
   Clock,
+  Code2,
+  Cookie,
   Download,
   Eye,
   EyeOff,
@@ -271,7 +273,280 @@ function BandwidthCounter() {
     </div>
   );
 }
+function SiteExceptionsList() {
+  const [exceptions, setExceptions] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("aflino_site_exceptions") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [inputValue, setInputValue] = useState("");
+  const [showInput, setShowInput] = useState(false);
 
+  const save = (list: string[]) => {
+    setExceptions(list);
+    localStorage.setItem("aflino_site_exceptions", JSON.stringify(list));
+  };
+
+  const addSite = () => {
+    const val = inputValue
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0];
+    if (!val || exceptions.includes(val)) {
+      setInputValue("");
+      setShowInput(false);
+      return;
+    }
+    save([...exceptions, val]);
+    setInputValue("");
+    setShowInput(false);
+  };
+
+  const removeSite = (site: string) =>
+    save(exceptions.filter((e) => e !== site));
+
+  return (
+    <div
+      className="border-t border-gray-100 px-4 py-4"
+      data-ocid="advanced.site_exceptions.panel"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Site Exceptions</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            These sites bypass cookie &amp; JS rules
+          </p>
+        </div>
+        <button
+          type="button"
+          data-ocid="advanced.site_exceptions.open_modal_button"
+          onClick={() => setShowInput((v) => !v)}
+          className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          style={{ background: "#E8F0FE", color: "#1A73E8" }}
+        >
+          + Add Website
+        </button>
+      </div>
+
+      {showInput && (
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            data-ocid="advanced.site_exceptions.input"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addSite()}
+            placeholder="e.g. google.com"
+            className="flex-1 text-sm px-3 py-2 rounded-lg border outline-none focus:ring-2 focus:ring-blue-400"
+            style={{
+              borderColor: "#1A73E8",
+              color: "#111",
+              background: "#fff",
+            }}
+          />
+          <button
+            type="button"
+            data-ocid="advanced.site_exceptions.submit_button"
+            onClick={addSite}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ background: "#1A73E8" }}
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {exceptions.length === 0 ? (
+        <p
+          className="text-xs text-gray-400 italic"
+          data-ocid="advanced.site_exceptions.empty_state"
+        >
+          No exceptions added yet.
+        </p>
+      ) : (
+        <div
+          className="flex flex-col gap-1.5"
+          data-ocid="advanced.site_exceptions.list"
+        >
+          {exceptions.map((site, idx) => (
+            <div
+              key={site}
+              data-ocid={`advanced.site_exceptions.item.${idx + 1}`}
+              className="flex items-center justify-between px-3 py-2 rounded-lg"
+              style={{ background: "#F0F4FF" }}
+            >
+              <span
+                className="text-xs font-medium"
+                style={{ color: "#1A73E8" }}
+              >
+                {site}
+              </span>
+              <button
+                type="button"
+                data-ocid={`advanced.site_exceptions.delete_button.${idx + 1}`}
+                onClick={() => removeSite(site)}
+                className="text-gray-400 hover:text-red-500 transition-colors ml-2 flex-shrink-0"
+                aria-label={`Remove ${site}`}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdBlockToggle() {
+  const [adBlockEnabled, setAdBlockEnabled] = useState(() => {
+    const stored = localStorage.getItem("aflino_adblock");
+    return stored === null ? false : stored === "true";
+  });
+
+  const toggle = () => {
+    const next = !adBlockEnabled;
+    setAdBlockEnabled(next);
+    localStorage.setItem("aflino_adblock", String(next));
+  };
+
+  return (
+    <div className="flex items-start gap-3 px-4 py-4">
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+        <Shield size={18} className="text-gray-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-800">Ad Blocker</p>
+        <p className="text-xs text-gray-400 mt-0.5">Block ads while browsing</p>
+        <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed">
+          Note: Blocking ads may affect the loading speed of some websites.
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={adBlockEnabled}
+        onClick={toggle}
+        data-ocid="settings.adblock.toggle"
+        className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
+        style={{ background: adBlockEnabled ? "#6b7280" : "#d1d5db" }}
+      >
+        <span
+          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+          style={{
+            transform: adBlockEnabled
+              ? "translateX(1.25rem)"
+              : "translateX(0.125rem)",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+function BlockCookiesToggle() {
+  const [enabled, setEnabled] = useState(() => {
+    return localStorage.getItem("aflino_block_cookies") === "true";
+  });
+
+  const toggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    localStorage.setItem("aflino_block_cookies", String(next));
+    // Signal to the app layer; actual iframe enforcement is handled where webviews are rendered
+    window.dispatchEvent(
+      new CustomEvent("aflino:block-cookies", { detail: next }),
+    );
+  };
+
+  return (
+    <div className="flex items-start gap-3 px-4 py-4 border-t border-gray-100">
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+        <Cookie size={18} className="text-gray-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-800">
+          Block Third-Party Cookies
+        </p>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Prevent cross-site cookie tracking
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={toggle}
+        data-ocid="settings.block_cookies.toggle"
+        className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
+        style={{ background: enabled ? "#6b7280" : "#d1d5db" }}
+      >
+        <span
+          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+          style={{
+            transform: enabled ? "translateX(1.25rem)" : "translateX(0.125rem)",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+function DisableJavaScriptToggle() {
+  const [enabled, setEnabled] = useState(() => {
+    return localStorage.getItem("aflino_disable_js") === "true";
+  });
+
+  const toggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    localStorage.setItem("aflino_disable_js", String(next));
+    window.dispatchEvent(
+      new CustomEvent("aflino:disable-js", { detail: next }),
+    );
+  };
+
+  return (
+    <div className="flex items-start gap-3 px-4 py-4 border-t border-gray-100">
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+        <Code2 size={18} className="text-gray-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-gray-800">
+          Disable JavaScript
+        </p>
+        <p className="text-xs text-gray-400 mt-0.5">
+          Block script execution in web views
+        </p>
+        {enabled && (
+          <p className="text-[11px] text-amber-500 mt-1.5 leading-relaxed">
+            ⚠️ Disabling JavaScript may break websites.
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={toggle}
+        data-ocid="settings.disable_js.toggle"
+        className="relative flex-shrink-0 mt-0.5 w-11 h-6 rounded-full transition-colors duration-300"
+        style={{ background: enabled ? "#6b7280" : "#d1d5db" }}
+      >
+        <span
+          className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300"
+          style={{
+            transform: enabled ? "translateX(1.25rem)" : "translateX(0.125rem)",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
 export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "wallet">(
     "overview",
@@ -715,6 +990,23 @@ export function ProfilePage({ onClose, onNavigate }: ProfilePageProps) {
                   </div>
                 </div>
                 <BandwidthCounter />
+                {/* Privacy & Security */}
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">
+                    Privacy &amp; Security
+                  </p>
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-4 pt-3 pb-1">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        Advanced
+                      </p>
+                    </div>
+                    <AdBlockToggle />
+                    <BlockCookiesToggle />
+                    <DisableJavaScriptToggle />
+                    <SiteExceptionsList />
+                  </div>
+                </div>
                 {/* Onboarding Tour Reset */}
                 <div className="mt-3">
                   <button

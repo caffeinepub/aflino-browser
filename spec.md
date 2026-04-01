@@ -1,27 +1,27 @@
-# Aflino Browser — Legal CMS
+# Aflino Browser
 
 ## Current State
-The app has an Admin Dashboard with sections (Analytics, Shortcuts, Users, Languages, Appearance, Settings, Wallet, Global Controls, Security). The PocketMenu has a Settings button at the bottom. There is no legal pages system. `react-quill-new` is already installed as a dependency.
+- SplitView has hardcoded `sandbox="allow-scripts allow-same-origin allow-forms allow-popups"` on both iframes, ignoring the Block Third-Party Cookies toggle.
+- Advanced Settings (ProfilePage) has three toggles: Ad Blocker, Block Third-Party Cookies, Disable JavaScript — no exception list exists.
+- No site-level whitelist/exception logic exists anywhere.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `LegalCmsSection.tsx` — Admin section with a page picker and rich text editor (react-quill-new) for 5 pages: Privacy Policy, Terms of Service, Cookie Policy, Contact Us, About Us. Includes an Update button.
-- `LegalPage.tsx` — Full-screen legal page viewer rendered when path is `/legal/[slug]`.
-- Legal pages store slice in `useShortcutsStore.ts` — persisted in localStorage, stores content for each slug.
+- `SiteExceptionsList` component in ProfilePage rendered below the three toggles inside the Advanced card.
+- Input field + "Add Website" button to add a domain to the exception list.
+- Exception list displayed as chips/rows with an X remove button.
+- Exception list persisted to `localStorage` under key `aflino_site_exceptions` as a JSON array.
+- `blockCookiesSandbox` prop/logic in SplitView: reads `aflino_block_cookies` from localStorage and reactively applies stricter sandbox (`allow-scripts allow-same-origin allow-forms`) — dropping `allow-popups` and isolating cookie scope when enabled.
+- Exception-aware logic: if the loaded URL domain is in the exception list, cookie/JS restrictions are NOT applied even when toggles are ON.
 
 ### Modify
-- `AdminDashboard.tsx` — Add `legalCms` entry to `Section` type and `navItems` array; render `LegalCmsSection` in the section switch.
-- `App.tsx` — Detect `/legal/[slug]` URL path and render `LegalPage` instead of `BrowserApp`.
-- `PocketMenu.tsx` — Add a "Legal" section in the Settings bottom area linking to the 5 legal pages.
+- `SplitView.tsx`: read block-cookies setting from localStorage + listen for `aflino:block-cookies` event; conditionally apply restricted sandbox to both iframes; check exception list before applying restrictions.
+- `ProfilePage.tsx`: add `SiteExceptionsList` component below `<DisableJavaScriptToggle />` inside the Advanced card.
 
 ### Remove
 - Nothing removed.
 
 ## Implementation Plan
-1. Add `legalPages` map to `useShortcutsStore` (slug → HTML content) with defaults.
-2. Create `LegalCmsSection.tsx` with page selector tabs and react-quill-new editor + Update button.
-3. Create `LegalPage.tsx` standalone page that reads slug from URL, reads content from store, renders HTML.
-4. Update `AdminDashboard.tsx` to add `legalCms` nav item (FileText icon).
-5. Update `App.tsx` to route `/legal/*` to `LegalPage`.
-6. Update `PocketMenu.tsx` to add legal links in the settings bottom row.
+1. Add `SiteExceptionsList` component to ProfilePage with localStorage persistence.
+2. Update SplitView to read block-cookies setting and apply conditional sandbox + exception check.

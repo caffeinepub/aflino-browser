@@ -17,6 +17,16 @@ export function BrowserFrame({
 }: BrowserFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
+  const [jsDisabled, setJsDisabled] = useState(
+    () => localStorage.getItem("aflino_disable_js") === "true",
+  );
+
+  useEffect(() => {
+    const handler = (e: Event) =>
+      setJsDisabled((e as CustomEvent).detail as boolean);
+    window.addEventListener("aflino:disable-js", handler);
+    return () => window.removeEventListener("aflino:disable-js", handler);
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on URL change
   useEffect(() => {
@@ -113,7 +123,11 @@ export function BrowserFrame({
         src={tab.url}
         title={tab.title}
         className="w-full h-full border-0"
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+        sandbox={
+          jsDisabled
+            ? "allow-same-origin allow-forms allow-popups"
+            : "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+        }
         onLoad={handleLoad}
         onError={handleError}
       />

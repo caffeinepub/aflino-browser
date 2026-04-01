@@ -158,7 +158,6 @@ export function PocketMenu({
   mediaHubVisible = false,
   onToggleMediaHub,
 }: PocketMenuProps) {
-  const [adBlocker, setAdBlocker] = useState(true);
   const [desktopSite, setDesktopSite] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
@@ -381,39 +380,6 @@ export function PocketMenu({
           {/* === Account & Security === */}
           <SectionLabel label={t.accountSecurity} />
           <MenuItem icon={UserCircle} label={t.signIn} iconColor="#1A73E8" />
-
-          <button
-            type="button"
-            onClick={() => setAdBlocker((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <div
-                className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
-                style={{ background: adBlocker ? "#eff6ff" : "#f3f4f6" }}
-              >
-                <Shield
-                  size={13}
-                  style={{
-                    color: adBlocker ? "#1A73E8" : "#6b7280",
-                  }}
-                />
-              </div>
-              <span className="text-xs font-medium text-gray-700">
-                {t.adBlocker}
-              </span>
-              {adBlocker && (
-                <span className="text-[8px] font-bold px-1 py-0.5 rounded-full bg-blue-100 text-blue-700 uppercase tracking-wide">
-                  {t.on}
-                </span>
-              )}
-            </div>
-            <Toggle
-              value={adBlocker}
-              onChange={() => setAdBlocker((v) => !v)}
-              color="#1A73E8"
-            />
-          </button>
 
           <MenuItem icon={UserX} label={t.incognito} iconColor="#6b7280" />
 

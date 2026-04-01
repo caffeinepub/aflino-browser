@@ -63,6 +63,38 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
   const [topBlocked, setTopBlocked] = useState(false);
   const [bottomUrl, setBottomUrl] = useState("about:blank");
   const topIframeRef = useRef<HTMLIFrameElement>(null);
+  const [blockCookies, setBlockCookies] = useState(
+    () => localStorage.getItem("aflino_block_cookies") === "true",
+  );
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setBlockCookies((e as CustomEvent<boolean>).detail);
+    };
+    window.addEventListener("aflino:block-cookies", handler);
+    return () => window.removeEventListener("aflino:block-cookies", handler);
+  }, []);
+
+  const getSiteExceptions = (): string[] => {
+    try {
+      return JSON.parse(localStorage.getItem("aflino_site_exceptions") || "[]");
+    } catch {
+      return [];
+    }
+  };
+
+  const isDomainExempt = (url: string): boolean => {
+    if (!url || url === "about:blank") return false;
+    const exceptions = getSiteExceptions();
+    try {
+      const domain = new URL(
+        url.startsWith("http") ? url : `https://${url}`,
+      ).hostname.replace(/^www\./, "");
+      return exceptions.some((ex) => domain.includes(ex.replace(/^www\./, "")));
+    } catch {
+      return false;
+    }
+  };
 
   // Preload Smart Sync immediately when topUrl changes —
   // does NOT wait for iframe load to complete
@@ -118,7 +150,11 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
             ref={topIframeRef}
             src={topUrl}
             className="flex-1 w-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox={
+              blockCookies && !isDomainExempt(topUrl)
+                ? "allow-scripts allow-same-origin allow-forms"
+                : "allow-scripts allow-same-origin allow-forms allow-popups"
+            }
             loading="lazy"
             title="Top view"
             onError={() => setTopBlocked(true)}
@@ -161,7 +197,11 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
           <iframe
             src={bottomUrl}
             className="flex-1 w-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox={
+              blockCookies && !isDomainExempt(bottomUrl)
+                ? "allow-scripts allow-same-origin allow-forms"
+                : "allow-scripts allow-same-origin allow-forms allow-popups"
+            }
             loading="lazy"
             title="Bottom view — Smart Sync"
           />
