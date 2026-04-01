@@ -1,0 +1,95 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&family=Noto+Serif+Devanagari:wght@400;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+}
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    --background: 1.0 0 0;
+    --foreground: 0.15 0.02 250;
+    --card: 0.98 0.005 240;
+    --card-foreground: 0.15 0.02 250;
+    --popover: 1.0 0 0;
+    --popover-foreground: 0.15 0.02 250;
+    --primary: 0.55 0.18 250;
+    --primary-foreground: 1.0 0 0;
+    --secondary: 0.95 0.01 240;
+    --secondary-foreground: 0.15 0.02 250;
+    --muted: 0.95 0.01 240;
+    --muted-foreground: 0.55 0.02 250;
+    --accent: 0.6 0.18 160;
+    --accent-foreground: 1.0 0 0;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    --border: 0.88 0.01 250;
+    --input: 0.92 0.01 250;
+    --ring: 0.55 0.18 250;
+    --chart-1: 0.55 0.18 250;
+    --chart-2: 0.6 0.18 160;
+    --chart-3: 0.78 0.12 220;
+    --chart-4: 0.828 0.189 84.429;
+    --chart-5: 0.704 0.191 22.216;
+    --sidebar: 0.98 0.005 240;
+    --sidebar-foreground: 0.15 0.02 250;
+    --sidebar-primary: 0.55 0.18 250;
+    --sidebar-primary-foreground: 1.0 0 0;
+    --sidebar-accent: 0.95 0.01 240;
+    --sidebar-accent-foreground: 0.15 0.02 250;
+    --sidebar-border: 0.88 0.01 250;
+    --sidebar-ring: 0.55 0.18 250;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+}
+
+/* Multi-language font classes */
+.font-urdu,
+[lang="ur"] {
+  font-family: "Noto Nastaliq Urdu", serif;
+}
+
+.font-sanskrit,
+.font-devanagari,
+[lang="sa"],
+[lang="hi"] {
+  font-family: "Noto Serif Devanagari", serif;
+}
+
+/* RTL support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Data Saver Mode */
+.data-saver-mode img[src$=".gif"],
+.data-saver-mode img[src*=".gif?"] {
+  display: none !important;
+}
+.data-saver-mode video[autoplay] {
+  pointer-events: none;
+}

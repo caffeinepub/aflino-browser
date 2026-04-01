@@ -278,19 +278,6 @@ function SiteExceptionsList() {
   const { exceptions, addException, removeException } = useWhitelist();
   const [inputValue, setInputValue] = useState("");
   const [showInput, setShowInput] = useState(false);
-  const [settingsToast, setSettingsToast] = useState<{
-    message: string;
-    visible: boolean;
-    variant: "add" | "remove";
-  }>({ message: "", visible: false, variant: "add" });
-
-  const showSettingsToast = (message: string, variant: "add" | "remove") => {
-    setSettingsToast({ message, visible: true, variant });
-    setTimeout(
-      () => setSettingsToast({ message: "", visible: false, variant: "add" }),
-      2500,
-    );
-  };
 
   const addSite = () => {
     const val = inputValue
@@ -304,34 +291,18 @@ function SiteExceptionsList() {
       setShowInput(false);
       return;
     }
-    const { added } = addException(val);
-    if (added) {
-      showSettingsToast(`${val} added to exceptions`, "add");
-    } else {
-      showSettingsToast(`${val} is already exempted`, "add");
-    }
+    addException(val);
     setInputValue("");
     setShowInput(false);
   };
 
-  const removeSite = (site: string) => {
-    removeException(site);
-    showSettingsToast(`${site} removed from exceptions`, "remove");
-  };
+  const removeSite = (site: string) => removeException(site);
 
   return (
     <div
-      className="border-t border-gray-100 px-4 py-4 relative"
+      className="border-t border-gray-100 px-4 py-4"
       data-ocid="advanced.site_exceptions.panel"
     >
-      {/* Toast keyframes */}
-      <style>{`
-        @keyframes aflino-settings-toast-in {
-          from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-      `}</style>
-
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-sm font-semibold text-gray-800">Site Exceptions</p>
@@ -414,40 +385,6 @@ function SiteExceptionsList() {
               </button>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Aflino-Blue glassmorphic toast — bottom center, same as SplitView */}
-      {settingsToast.visible && (
-        <div
-          data-ocid="advanced.site_exceptions.toast"
-          style={{
-            position: "fixed",
-            bottom: 72,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background:
-              settingsToast.variant === "remove"
-                ? "rgba(180, 30, 30, 0.82)"
-                : "rgba(26, 115, 232, 0.85)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.2)",
-            color: "#fff",
-            padding: "8px 18px",
-            borderRadius: 24,
-            fontSize: 12,
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-            zIndex: 9999,
-            boxShadow:
-              settingsToast.variant === "remove"
-                ? "0 4px 20px rgba(180, 30, 30, 0.35)"
-                : "0 4px 20px rgba(26, 115, 232, 0.35)",
-            animation: "aflino-settings-toast-in 0.25s ease",
-          }}
-        >
-          {settingsToast.message}
         </div>
       )}
     </div>

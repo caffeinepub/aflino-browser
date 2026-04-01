@@ -1,0 +1,60 @@
+export const adminConfig = {
+  features: {
+    aiModeEnabled: true,
+    privateInternetEnabled: true,
+  },
+  aflinoApps: [
+    {
+      id: "1",
+      label: "Aflino Mail",
+      icon: "📧",
+      url: "https://mail.aflino.com",
+    },
+    {
+      id: "2",
+      label: "Aflino Maps",
+      icon: "🗺️",
+      url: "https://maps.aflino.com",
+    },
+    {
+      id: "3",
+      label: "Aflino Store",
+      icon: "🛍️",
+      url: "https://store.aflino.com",
+    },
+    { id: "4", label: "Aflino AI", icon: "🤖", url: "https://ai.aflino.com" },
+    {
+      id: "5",
+      label: "Aflino News",
+      icon: "📰",
+      url: "https://news.aflino.com",
+    },
+    { id: "6", label: "Aflino Pay", icon: "💳", url: "https://pay.aflino.com" },
+  ],
+  globalBrands: [
+    { id: "1", label: "Samsung", icon: "📱", url: "https://samsung.com" },
+    { id: "2", label: "Apple", icon: "🍎", url: "https://apple.com" },
+    { id: "3", label: "Microsoft", icon: "🪟", url: "https://microsoft.com" },
+    { id: "4", label: "Amazon", icon: "📦", url: "https://amazon.com" },
+    { id: "5", label: "Google", icon: "🔍", url: "https://google.com" },
+    { id: "6", label: "Netflix", icon: "🎬", url: "https://netflix.com" },
+    { id: "7", label: "Spotify", icon: "🎵", url: "https://spotify.com" },
+    { id: "8", label: "Twitter", icon: "🐦", url: "https://x.com" },
+  ],
+  socialApps: [
+    { id: "1", label: "Facebook", icon: "👤", url: "https://facebook.com" },
+    { id: "2", label: "Instagram", icon: "📸", url: "https://instagram.com" },
+    { id: "3", label: "WhatsApp", icon: "💬", url: "https://web.whatsapp.com" },
+    { id: "4", label: "YouTube", icon: "▶️", url: "https://youtube.com" },
+    { id: "5", label: "TikTok", icon: "🎵", url: "https://tiktok.com" },
+    { id: "6", label: "Telegram", icon: "✈️", url: "https://telegram.org" },
+  ],
+  productivityApps: [
+    { id: "1", label: "GitHub", icon: "💻", url: "https://github.com" },
+    { id: "2", label: "Notion", icon: "📝", url: "https://notion.so" },
+    { id: "3", label: "Slack", icon: "💼", url: "https://slack.com" },
+    { id: "4", label: "Zoom", icon: "📹", url: "https://zoom.us" },
+    { id: "5", label: "LinkedIn", icon: "🔗", url: "https://linkedin.com" },
+    { id: "6", label: "Reddit", icon: "🤖", url: "https://reddit.com" },
+  ],
+};
