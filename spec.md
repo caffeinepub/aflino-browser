@@ -1,37 +1,27 @@
-# Aflino Browser — Security Hardening
+# Aflino Browser — Legal CMS
 
 ## Current State
-- React/Vite frontend on ICP (no Express server — Motoko backend is empty actor)
-- index.html has no security meta tags (no CSP, no X-Frame-Options, no HSTS)
-- Service Worker uses a basic cache-first/network-first strategy with no integrity checks
-- Google API keys are admin-entered and stored in Zustand/localStorage (not hardcoded, but no sanitization or masking)
-- No rate-limiting on API calls from frontend
-- No HTTPS enforcement logic
+The app has an Admin Dashboard with sections (Analytics, Shortcuts, Users, Languages, Appearance, Settings, Wallet, Global Controls, Security). The PocketMenu has a Settings button at the bottom. There is no legal pages system. `react-quill-new` is already installed as a dependency.
 
 ## Requested Changes (Diff)
 
 ### Add
-- CSP meta tag in index.html (self + trusted Google APIs only)
-- X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy via meta tags
-- HTTPS enforcement script in index.html (redirect http → https + HSTS hint)
-- `src/utils/security.ts` — TokenBucket rate limiter (100 req / 15 min per session), XSS sanitizer, API key validator
-- Upgraded sw.js — stale-while-revalidate strategy, integrity signature check, blocks cross-origin script injection
-- `.env.example` documenting all environment variables
-- Security audit panel in Admin → Settings showing current security posture
+- `LegalCmsSection.tsx` — Admin section with a page picker and rich text editor (react-quill-new) for 5 pages: Privacy Policy, Terms of Service, Cookie Policy, Contact Us, About Us. Includes an Update button.
+- `LegalPage.tsx` — Full-screen legal page viewer rendered when path is `/legal/[slug]`.
+- Legal pages store slice in `useShortcutsStore.ts` — persisted in localStorage, stores content for each slug.
 
 ### Modify
-- index.html: add all security meta tags + HTTPS redirect script
-- sw.js: replace naive cache strategy with stale-while-revalidate + script integrity guard
-- App.tsx: wrap Google API calls with rate limiter from security.ts
-- useShortcutsStore.ts: mask stored API keys (only store last 4 chars in display, keep full key encrypted)
+- `AdminDashboard.tsx` — Add `legalCms` entry to `Section` type and `navItems` array; render `LegalCmsSection` in the section switch.
+- `App.tsx` — Detect `/legal/[slug]` URL path and render `LegalPage` instead of `BrowserApp`.
+- `PocketMenu.tsx` — Add a "Legal" section in the Settings bottom area linking to the 5 legal pages.
 
 ### Remove
-- Nothing removed
+- Nothing removed.
 
 ## Implementation Plan
-1. Write `src/frontend/src/utils/security.ts` — TokenBucket, sanitizeInput, validateApiKey, encryptKey/decryptKey
-2. Update `src/frontend/public/sw.js` — stale-while-revalidate, integrity whitelist, script injection guard
-3. Update `src/frontend/index.html` — CSP meta, security headers meta, HTTPS redirect script
-4. Update `src/frontend/src/App.tsx` — use rateLimiter before Google API fetch calls
-5. Write `.env.example` — document all Caffeine/ICP env vars
-6. Add Security Status card in Admin panel (AdminPanel component)
+1. Add `legalPages` map to `useShortcutsStore` (slug → HTML content) with defaults.
+2. Create `LegalCmsSection.tsx` with page selector tabs and react-quill-new editor + Update button.
+3. Create `LegalPage.tsx` standalone page that reads slug from URL, reads content from store, renders HTML.
+4. Update `AdminDashboard.tsx` to add `legalCms` nav item (FileText icon).
+5. Update `App.tsx` to route `/legal/*` to `LegalPage`.
+6. Update `PocketMenu.tsx` to add legal links in the settings bottom row.

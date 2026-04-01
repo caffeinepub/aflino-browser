@@ -622,6 +622,34 @@ export function PocketMenu({
             </button>
           </div>
 
+          {/* Legal Links */}
+          <div className="border-t border-gray-50 px-3 py-2">
+            <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Legal & Info
+            </p>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {[
+                { slug: "privacy-policy", label: "Privacy Policy" },
+                { slug: "terms-of-service", label: "Terms" },
+                { slug: "cookie-policy", label: "Cookies" },
+                { slug: "contact-us", label: "Contact" },
+                { slug: "about-us", label: "About Us" },
+              ].map((page) => (
+                <button
+                  key={page.slug}
+                  type="button"
+                  onClick={() => {
+                    window.location.href = `/legal/${page.slug}`;
+                  }}
+                  data-ocid={`legal.${page.slug}.link`}
+                  className="text-[10px] hover:underline active:opacity-70 transition-opacity"
+                  style={{ color: "#1A73E8" }}
+                >
+                  {page.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-center justify-center py-2 border-t border-gray-50">
             <span
               className="text-[11px] font-semibold text-gray-400 tracking-wide"

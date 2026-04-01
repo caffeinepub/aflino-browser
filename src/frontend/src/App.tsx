@@ -9,6 +9,7 @@ import { Dashboard } from "./components/Dashboard";
 import { FloatingMediaHub } from "./components/FloatingMediaHub";
 import { FooterNav } from "./components/FooterNav";
 import { Header } from "./components/Header";
+import { LegalPage } from "./components/LegalPage";
 import { OmniboxOverlay } from "./components/OmniboxOverlay";
 import { OnboardingTour } from "./components/OnboardingTour";
 import { PocketMenu } from "./components/PocketMenu";
@@ -790,6 +791,14 @@ export default function App() {
     return () =>
       window.removeEventListener("sw-update-available", handleSwUpdate);
   }, []);
+
+  const isLegal =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/legal");
+
+  if (isLegal) {
+    return <LegalPage />;
+  }
 
   if (isAdmin) {
     return <AdminDashboard />;

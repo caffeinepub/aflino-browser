@@ -1,6 +1,7 @@
 import {
   BarChart2,
   Check,
+  FileText,
   Globe,
   LayoutGrid,
   LogOut,
@@ -24,6 +25,7 @@ import { AnalyticsSection } from "./AnalyticsSection";
 import { DomainPartnersSection } from "./DomainPartnersSection";
 import { GlobalControlsSection } from "./GlobalControlsSection";
 import { ImageCropperModal } from "./ImageCropperModal";
+import { LegalCmsSection } from "./LegalCmsSection";
 import { SecurityStatusPanel } from "./SecurityStatusPanel";
 import { ShortcutsManager } from "./ShortcutsManager";
 import { UserDatabaseSection } from "./UserDatabaseSection";
@@ -37,7 +39,8 @@ type Section =
   | "users"
   | "wallet"
   | "globalControls"
-  | "security";
+  | "security"
+  | "legalCms";
 
 const navItems: {
   id: Section;
@@ -64,6 +67,11 @@ const navItems: {
     id: "security",
     label: "Security",
     icon: <ShieldCheck size={18} />,
+  },
+  {
+    id: "legalCms",
+    label: "Browser Legal Manager",
+    icon: <FileText size={18} />,
   },
 ];
 
@@ -1123,6 +1131,7 @@ export function AdminDashboard() {
           {activeSection === "wallet" && <DomainPartnersSection />}
           {activeSection === "globalControls" && <GlobalControlsSection />}
           {activeSection === "security" && <SecurityStatusPanel />}
+          {activeSection === "legalCms" && <LegalCmsSection />}
         </main>
 
         {/* Footer */}

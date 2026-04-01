@@ -341,6 +341,8 @@ interface ShortcutsState extends MultiEngineApiConfig {
   tourCompleted: boolean;
   setTourCompleted: (val: boolean) => void;
   featureAnalytics: Record<string, number>;
+  legalPages: Record<string, string>;
+  setLegalPage: (slug: string, html: string) => void;
   insightsBannerDismissed: boolean;
   readArticles: string[];
   incrementFeatureAnalytic: (feature: string) => void;
@@ -442,6 +444,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
       dataSaver: false,
       tourCompleted: false,
       featureAnalytics: {},
+      legalPages: {},
       insightsBannerDismissed: false,
       readArticles: [],
       searchCount: 0,
@@ -554,6 +557,10 @@ export const useShortcutsStore = create<ShortcutsState>()(
       setJsEnabled: (enabled) => set({ jsEnabled: enabled }),
       setDataSaver: (v) => set({ dataSaver: v }),
       setTourCompleted: (val) => set({ tourCompleted: val }),
+      setLegalPage: (slug, html) =>
+        set((state) => ({
+          legalPages: { ...state.legalPages, [slug]: html },
+        })),
       incrementFeatureAnalytic: (feature) =>
         set((s) => ({
           featureAnalytics: {
