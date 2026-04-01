@@ -35,19 +35,14 @@ const SHOPPING_KEYWORDS = [
   "sale",
 ];
 
-/**
- * Extract a meaningful search term from a URL for Smart Sync.
- * Uses the domain name + any readable path segment.
- */
 function extractSearchKeyword(url: string): string {
   try {
     const parsed = new URL(url);
     const domain = parsed.hostname.replace(/^www\./, "");
-    // Try to extract a human-readable segment from the path
     const pathParts = parsed.pathname
       .split("/")
       .map((p) => decodeURIComponent(p).replace(/[-_+]/g, " ").trim())
-      .filter((p) => p.length > 2 && !/^[0-9a-f-]{8,}$/i.test(p)); // skip UUIDs/IDs
+      .filter((p) => p.length > 2 && !/^[0-9a-f-]{8,}$/i.test(p));
     const keyword = pathParts[pathParts.length - 1] || domain;
     return keyword.length > 3 ? keyword : domain;
   } catch {
@@ -59,7 +54,6 @@ function getSmartSyncUrl(topUrl: string): string | null {
   const lower = topUrl.toLowerCase();
   const hasShoppingKeyword = SHOPPING_KEYWORDS.some((kw) => lower.includes(kw));
   if (!hasShoppingKeyword) return null;
-
   const keyword = extractSearchKeyword(topUrl);
   return `https://www.google.com/search?q=${encodeURIComponent(keyword)}`;
 }
@@ -72,6 +66,9 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
     () => localStorage.getItem("aflino_block_cookies") === "true",
   );
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bottomRefreshKey, setBottomRefreshKey] = useState(0);
+  // Increment to force re-evaluation of exemptions in both panes
+  const [exceptionsVersion, setExceptionsVersion] = useState(0);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -79,6 +76,17 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
     };
     window.addEventListener("aflino:block-cookies", handler);
     return () => window.removeEventListener("aflino:block-cookies", handler);
+  }, []);
+
+  // Listen for external changes to the exceptions list (e.g. from Settings)
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === "aflino_site_exceptions") {
+        setExceptionsVersion((v) => v + 1);
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
   }, []);
 
   const getSiteExceptions = (): string[] => {
@@ -109,24 +117,43 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
       ).hostname.replace(/^www\./, "");
       const current = getSiteExceptions();
       if (!current.includes(domain)) {
-        const updated = [...current, domain];
-        localStorage.setItem("aflino_site_exceptions", JSON.stringify(updated));
+        localStorage.setItem(
+          "aflino_site_exceptions",
+          JSON.stringify([...current, domain]),
+        );
       }
+      setExceptionsVersion((v) => v + 1);
       setRefreshKey((k) => k + 1);
     } catch {
       /* noop */
     }
   };
 
-  // Preload Smart Sync immediately when topUrl changes —
-  // does NOT wait for iframe load to complete
+  const addBottomException = () => {
+    try {
+      const domain = new URL(
+        bottomUrl.startsWith("http") ? bottomUrl : `https://${bottomUrl}`,
+      ).hostname.replace(/^www\./, "");
+      const current = getSiteExceptions();
+      if (!current.includes(domain)) {
+        localStorage.setItem(
+          "aflino_site_exceptions",
+          JSON.stringify([...current, domain]),
+        );
+      }
+      setExceptionsVersion((v) => v + 1);
+      setBottomRefreshKey((k) => k + 1);
+    } catch {
+      /* noop */
+    }
+  };
+
   useEffect(() => {
     setTopBlocked(false);
     const smart = getSmartSyncUrl(topUrl);
     if (smart) {
       setBottomUrl(smart);
     } else {
-      // Reset bottom pane if top URL no longer matches shopping keywords
       setBottomUrl("about:blank");
     }
   }, [topUrl]);
@@ -135,7 +162,16 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
   const bottomDomain =
     bottomUrl === "about:blank" ? "Empty" : extractDomain(bottomUrl);
   const isSmartSynced = bottomUrl !== "about:blank";
+
+  // Recomputed whenever exceptions change (exceptionsVersion as implicit dep via closure re-run)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const isExempted = isDomainExempt(topUrl);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const isBottomExempted =
+    bottomUrl !== "about:blank" && isDomainExempt(bottomUrl);
+
+  // Force re-render when exceptionsVersion changes so isExempted / isBottomExempted re-evaluate
+  void exceptionsVersion;
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -160,7 +196,6 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
                 <ShieldCheck size={9} style={{ color: "#1A73E8" }} />
                 Exempted
               </span>
-              {/* Tooltip */}
               <div
                 className="absolute bottom-full right-0 mb-1.5 z-50 hidden group-hover:block"
                 style={{ minWidth: 180 }}
@@ -247,6 +282,45 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
               ✦ Smart Sync
             </span>
           )}
+
+          {isBottomExempted ? (
+            <div className="relative group ml-auto flex-shrink-0">
+              <span
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold cursor-default select-none"
+                style={{ background: "#E8F0FE", color: "#1A73E8" }}
+              >
+                <ShieldCheck size={9} style={{ color: "#1A73E8" }} />
+                Exempted
+              </span>
+              <div
+                className="absolute bottom-full right-0 mb-1.5 z-50 hidden group-hover:block"
+                style={{ minWidth: 180 }}
+              >
+                <div
+                  className="text-[10px] text-white px-2 py-1.5 rounded-lg shadow-lg leading-snug"
+                  style={{ background: "#1A73E8" }}
+                >
+                  This site is bypassing cookie &amp; JS restrictions.
+                </div>
+              </div>
+            </div>
+          ) : (
+            blockCookies &&
+            bottomUrl !== "about:blank" && (
+              <button
+                type="button"
+                onClick={addBottomException}
+                title="Add to Site Exceptions"
+                className="ml-auto flex-shrink-0 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-blue-50 transition-colors"
+              >
+                <ShieldPlus
+                  size={11}
+                  style={{ color: "#9ca3af" }}
+                  className="hover:text-blue-500"
+                />
+              </button>
+            )
+          )}
         </div>
 
         {bottomUrl === "about:blank" ? (
@@ -258,6 +332,7 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
           </div>
         ) : (
           <iframe
+            key={bottomRefreshKey}
             src={bottomUrl}
             className="flex-1 w-full border-0"
             sandbox={
