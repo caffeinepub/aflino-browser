@@ -1,4 +1,9 @@
-import { AlertTriangle, ExternalLink } from "lucide-react";
+import {
+  AlertTriangle,
+  ExternalLink,
+  ShieldCheck,
+  ShieldPlus,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface SplitViewProps {
@@ -66,6 +71,7 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
   const [blockCookies, setBlockCookies] = useState(
     () => localStorage.getItem("aflino_block_cookies") === "true",
   );
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -96,6 +102,22 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
     }
   };
 
+  const addTopException = () => {
+    try {
+      const domain = new URL(
+        topUrl.startsWith("http") ? topUrl : `https://${topUrl}`,
+      ).hostname.replace(/^www\./, "");
+      const current = getSiteExceptions();
+      if (!current.includes(domain)) {
+        const updated = [...current, domain];
+        localStorage.setItem("aflino_site_exceptions", JSON.stringify(updated));
+      }
+      setRefreshKey((k) => k + 1);
+    } catch {
+      /* noop */
+    }
+  };
+
   // Preload Smart Sync immediately when topUrl changes —
   // does NOT wait for iframe load to complete
   useEffect(() => {
@@ -113,6 +135,7 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
   const bottomDomain =
     bottomUrl === "about:blank" ? "Empty" : extractDomain(bottomUrl);
   const isSmartSynced = bottomUrl !== "about:blank";
+  const isExempted = isDomainExempt(topUrl);
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -127,6 +150,45 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
           <span className="text-[10px] text-gray-500 font-medium truncate">
             {topDomain}
           </span>
+
+          {isExempted ? (
+            <div className="relative group ml-auto flex-shrink-0">
+              <span
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold cursor-default select-none"
+                style={{ background: "#E8F0FE", color: "#1A73E8" }}
+              >
+                <ShieldCheck size={9} style={{ color: "#1A73E8" }} />
+                Exempted
+              </span>
+              {/* Tooltip */}
+              <div
+                className="absolute bottom-full right-0 mb-1.5 z-50 hidden group-hover:block"
+                style={{ minWidth: 180 }}
+              >
+                <div
+                  className="text-[10px] text-white px-2 py-1.5 rounded-lg shadow-lg leading-snug"
+                  style={{ background: "#1A73E8" }}
+                >
+                  This site is bypassing cookie &amp; JS restrictions.
+                </div>
+              </div>
+            </div>
+          ) : (
+            blockCookies && (
+              <button
+                type="button"
+                onClick={addTopException}
+                title="Add to Site Exceptions"
+                className="ml-auto flex-shrink-0 flex items-center gap-0.5 px-1 py-0.5 rounded hover:bg-blue-50 transition-colors"
+              >
+                <ShieldPlus
+                  size={11}
+                  style={{ color: "#9ca3af" }}
+                  className="hover:text-blue-500"
+                />
+              </button>
+            )
+          )}
         </div>
 
         {topBlocked ? (
@@ -147,6 +209,7 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
           </div>
         ) : (
           <iframe
+            key={refreshKey}
             ref={topIframeRef}
             src={topUrl}
             className="flex-1 w-full border-0"

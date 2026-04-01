@@ -1,27 +1,24 @@
 # Aflino Browser
 
 ## Current State
-- SplitView has hardcoded `sandbox="allow-scripts allow-same-origin allow-forms allow-popups"` on both iframes, ignoring the Block Third-Party Cookies toggle.
-- Advanced Settings (ProfilePage) has three toggles: Ad Blocker, Block Third-Party Cookies, Disable JavaScript — no exception list exists.
-- No site-level whitelist/exception logic exists anywhere.
+SplitView has isDomainExempt() logic and applies sandbox attributes when blockCookies is active, but there is no visual feedback in the domain strip.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `SiteExceptionsList` component in ProfilePage rendered below the three toggles inside the Advanced card.
-- Input field + "Add Website" button to add a domain to the exception list.
-- Exception list displayed as chips/rows with an X remove button.
-- Exception list persisted to `localStorage` under key `aflino_site_exceptions` as a JSON array.
-- `blockCookiesSandbox` prop/logic in SplitView: reads `aflino_block_cookies` from localStorage and reactively applies stricter sandbox (`allow-scripts allow-same-origin allow-forms`) — dropping `allow-popups` and isolating cookie scope when enabled.
-- Exception-aware logic: if the loaded URL domain is in the exception list, cookie/JS restrictions are NOT applied even when toggles are ON.
+- Exempted badge (ShieldCheck + label, Aflino Blue) in top domain strip when URL is whitelisted.
+- Quick-whitelist button (ShieldPlus) when site is NOT exempted — clicking adds domain to exceptions and refreshes iframe.
+- Tooltip on Exempted badge: "This site is bypassing cookie & JS restrictions."
 
 ### Modify
-- `SplitView.tsx`: read block-cookies setting from localStorage + listen for `aflino:block-cookies` event; conditionally apply restricted sandbox to both iframes; check exception list before applying restrictions.
-- `ProfilePage.tsx`: add `SiteExceptionsList` component below `<DisableJavaScriptToggle />` inside the Advanced card.
+- SplitView top domain strip to include exemption state rendering.
 
 ### Remove
-- Nothing removed.
+- Nothing.
 
 ## Implementation Plan
-1. Add `SiteExceptionsList` component to ProfilePage with localStorage persistence.
-2. Update SplitView to read block-cookies setting and apply conditional sandbox + exception check.
+1. Add refreshKey state counter to force iframe reload after whitelisting.
+2. Add addException(domain) helper.
+3. Render ExemptedBadge with tooltip when isExempted.
+4. Render QuickWhitelistButton when not exempted and restrictions are active.
+5. Keep badge minimal — 9-10px text, small icon.
