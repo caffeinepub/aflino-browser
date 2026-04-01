@@ -23,6 +23,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useWhitelist } from "../hooks/useWhitelist";
 import { useEfficiencyStore } from "../useShortcutsStore";
 import { type HistoryEntry, useShortcutsStore } from "../useShortcutsStore";
 import { QRSyncPanel } from "./QRSyncPanel";
@@ -274,20 +275,9 @@ function BandwidthCounter() {
   );
 }
 function SiteExceptionsList() {
-  const [exceptions, setExceptions] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("aflino_site_exceptions") || "[]");
-    } catch {
-      return [];
-    }
-  });
+  const { exceptions, addException, removeException } = useWhitelist();
   const [inputValue, setInputValue] = useState("");
   const [showInput, setShowInput] = useState(false);
-
-  const save = (list: string[]) => {
-    setExceptions(list);
-    localStorage.setItem("aflino_site_exceptions", JSON.stringify(list));
-  };
 
   const addSite = () => {
     const val = inputValue
@@ -296,18 +286,17 @@ function SiteExceptionsList() {
       .replace(/^https?:\/\//, "")
       .replace(/^www\./, "")
       .split("/")[0];
-    if (!val || exceptions.includes(val)) {
+    if (!val) {
       setInputValue("");
       setShowInput(false);
       return;
     }
-    save([...exceptions, val]);
+    addException(val);
     setInputValue("");
     setShowInput(false);
   };
 
-  const removeSite = (site: string) =>
-    save(exceptions.filter((e) => e !== site));
+  const removeSite = (site: string) => removeException(site);
 
   return (
     <div

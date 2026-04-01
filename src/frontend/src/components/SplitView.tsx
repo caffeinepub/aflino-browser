@@ -5,6 +5,7 @@ import {
   ShieldPlus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useWhitelist } from "../hooks/useWhitelist";
 
 interface SplitViewProps {
   topUrl: string;
@@ -58,6 +59,13 @@ function getSmartSyncUrl(topUrl: string): string | null {
   return `https://www.google.com/search?q=${encodeURIComponent(keyword)}`;
 }
 
+const TOAST_KEYFRAMES = `
+@keyframes aflino-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+`;
+
 export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
   const [topBlocked, setTopBlocked] = useState(false);
   const [bottomUrl, setBottomUrl] = useState("about:blank");
@@ -67,8 +75,15 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
   );
   const [refreshKey, setRefreshKey] = useState(0);
   const [bottomRefreshKey, setBottomRefreshKey] = useState(0);
-  // Increment to force re-evaluation of exemptions in both panes
-  const [exceptionsVersion, setExceptionsVersion] = useState(0);
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({
+    message: "",
+    visible: false,
+  });
+
+  const showToast = (message: string) => {
+    setToast({ message, visible: true });
+    setTimeout(() => setToast({ message: "", visible: false }), 2500);
+  };
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -78,28 +93,10 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
     return () => window.removeEventListener("aflino:block-cookies", handler);
   }, []);
 
-  // Listen for external changes to the exceptions list (e.g. from Settings)
-  useEffect(() => {
-    const handler = (e: StorageEvent) => {
-      if (e.key === "aflino_site_exceptions") {
-        setExceptionsVersion((v) => v + 1);
-      }
-    };
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
-
-  const getSiteExceptions = (): string[] => {
-    try {
-      return JSON.parse(localStorage.getItem("aflino_site_exceptions") || "[]");
-    } catch {
-      return [];
-    }
-  };
+  const { exceptions, addException } = useWhitelist();
 
   const isDomainExempt = (url: string): boolean => {
     if (!url || url === "about:blank") return false;
-    const exceptions = getSiteExceptions();
     try {
       const domain = new URL(
         url.startsWith("http") ? url : `https://${url}`,
@@ -115,15 +112,13 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
       const domain = new URL(
         topUrl.startsWith("http") ? topUrl : `https://${topUrl}`,
       ).hostname.replace(/^www\./, "");
-      const current = getSiteExceptions();
-      if (!current.includes(domain)) {
-        localStorage.setItem(
-          "aflino_site_exceptions",
-          JSON.stringify([...current, domain]),
-        );
+      const { added } = addException(domain);
+      if (added) {
+        showToast(`${domain} added to exceptions`);
+        setRefreshKey((k) => k + 1);
+      } else {
+        showToast(`${domain} is already exempted`);
       }
-      setExceptionsVersion((v) => v + 1);
-      setRefreshKey((k) => k + 1);
     } catch {
       /* noop */
     }
@@ -134,15 +129,13 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
       const domain = new URL(
         bottomUrl.startsWith("http") ? bottomUrl : `https://${bottomUrl}`,
       ).hostname.replace(/^www\./, "");
-      const current = getSiteExceptions();
-      if (!current.includes(domain)) {
-        localStorage.setItem(
-          "aflino_site_exceptions",
-          JSON.stringify([...current, domain]),
-        );
+      const { added } = addException(domain);
+      if (added) {
+        showToast(`${domain} added to exceptions`);
+        setBottomRefreshKey((k) => k + 1);
+      } else {
+        showToast(`${domain} is already exempted`);
       }
-      setExceptionsVersion((v) => v + 1);
-      setBottomRefreshKey((k) => k + 1);
     } catch {
       /* noop */
     }
@@ -163,18 +156,14 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
     bottomUrl === "about:blank" ? "Empty" : extractDomain(bottomUrl);
   const isSmartSynced = bottomUrl !== "about:blank";
 
-  // Recomputed whenever exceptions change (exceptionsVersion as implicit dep via closure re-run)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const isExempted = isDomainExempt(topUrl);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const isBottomExempted =
     bottomUrl !== "about:blank" && isDomainExempt(bottomUrl);
 
-  // Force re-render when exceptionsVersion changes so isExempted / isBottomExempted re-evaluate
-  void exceptionsVersion;
-
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full relative">
+      <style>{TOAST_KEYFRAMES}</style>
+
       {/* Top pane */}
       <div className="flex-1 flex flex-col min-h-0 relative border-b-2 border-blue-200">
         {/* Domain strip */}
@@ -345,6 +334,34 @@ export function SplitView({ topUrl, onTopBlocked }: SplitViewProps) {
           />
         )}
       </div>
+
+      {/* Toast */}
+      {toast.visible && (
+        <div
+          data-ocid="splitview.toast"
+          style={{
+            position: "absolute",
+            bottom: 40,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(26, 115, 232, 0.85)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            color: "#fff",
+            padding: "8px 18px",
+            borderRadius: 24,
+            fontSize: 12,
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            zIndex: 9999,
+            boxShadow: "0 4px 20px rgba(26, 115, 232, 0.35)",
+            animation: "aflino-toast-in 0.25s ease",
+          }}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
