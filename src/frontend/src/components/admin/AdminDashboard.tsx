@@ -23,7 +23,11 @@ import { LANGUAGES } from "../../i18n/languages";
 import { useLanguageStore } from "../../useLanguageStore";
 import { SEARCH_ENGINE_URLS, useShortcutsStore } from "../../useShortcutsStore";
 import type { SearchEngine } from "../../useShortcutsStore";
-import { getLast24HourCounts, getTodayTotal } from "../../utils/searchStats";
+import {
+  getCountsForRange,
+  getRecordsInRange,
+  getTodayTotal,
+} from "../../utils/searchStats";
 import { AdminLogin } from "./AdminLogin";
 import { AnalyticsSection } from "./AnalyticsSection";
 import { DomainPartnersSection } from "./DomainPartnersSection";
@@ -1072,9 +1076,6 @@ function MonetizationApiSection() {
   const maskApiKey = (key: string) =>
     key ? `${"•".repeat(Math.max(0, key.length - 4))}${key.slice(-4)}` : "";
 
-  const [searchStats, setSearchStats] = useState<number[]>(() =>
-    getLast24HourCounts(),
-  );
   const [todayTotal, setTodayTotal] = useState<number>(() => getTodayTotal());
   const [rpm, setRpm] = useState<number>(() => {
     const saved = localStorage.getItem("aflino_rpm");
@@ -1082,57 +1083,83 @@ function MonetizationApiSection() {
   });
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const today = new Date().toISOString().split("T")[0];
+  const [startDate, setStartDate] = useState<string>(today);
+  const [endDate, setEndDate] = useState<string>(today);
+  const [selectedPreset, setSelectedPreset] = useState<
+    "today" | "7d" | "month" | "custom"
+  >("today");
+  const [sparklineData, setSparklineData] = useState<number[]>(() =>
+    getCountsForRange(today, today),
+  );
+
+  const handlePreset = (preset: "today" | "7d" | "month") => {
+    const t = new Date();
+    const todayStr = t.toISOString().split("T")[0];
+    let start = todayStr;
+    if (preset === "7d") {
+      const d = new Date(t);
+      d.setDate(d.getDate() - 6);
+      start = d.toISOString().split("T")[0];
+    } else if (preset === "month") {
+      start = `${todayStr.slice(0, 7)}-01`;
+    }
+    setStartDate(start);
+    setEndDate(todayStr);
+    setSelectedPreset(preset);
+    setSparklineData(getCountsForRange(start, todayStr));
+  };
+
   const exportSearchCSV = () => {
-    const today = new Date().toISOString().split("T")[0];
     const partnerId = localStorage.getItem("aflino_partner_id") || "";
     const partnerStatus = partnerId ? "Active" : "Not Set";
-    let raw: { date: string; counts: number[] } | null = null;
-    try {
-      const stored = localStorage.getItem("aflino_search_stats");
-      if (stored) raw = JSON.parse(stored);
-    } catch {
-      /* ignore */
+    const records = getRecordsInRange(startDate, endDate);
+    const rows = ["Date,Hour,Timestamp,Search Count,Partner ID Status"];
+    for (const record of records) {
+      record.counts.forEach((count: number, hour: number) => {
+        const ts = `${record.date} ${String(hour).padStart(2, "0")}:00`;
+        rows.push(`${record.date},${hour},${ts},${count},${partnerStatus}`);
+      });
     }
-    const counts = raw?.date === today ? raw.counts : new Array(24).fill(0);
-    const rows = ["Timestamp,Search Count,Partner ID Status"];
-    counts.forEach((count: number, hour: number) => {
-      const ts = `${today} ${String(hour).padStart(2, "0")}:00`;
-      rows.push(`${ts},${count},${partnerStatus}`);
-    });
+    if (rows.length === 1) {
+      toast.info("No data found for the selected date range.");
+      return;
+    }
     const csv = rows.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Aflino_Search_Report_${today}.csv`;
+    a.download = `Aflino_Report_${startDate}_to_${endDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Report downloaded");
   };
 
   const resetTodayCount = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const todayDate = new Date().toISOString().split("T")[0];
     const fresh = {
-      date: today,
+      date: todayDate,
       counts: new Array(24).fill(0),
       lastUpdated: Date.now(),
     };
     localStorage.setItem("aflino_search_stats", JSON.stringify(fresh));
     setTodayTotal(0);
-    setSearchStats(new Array(24).fill(0));
+    setSparklineData(getCountsForRange(startDate, endDate));
     setShowResetConfirm(false);
     toast.success("Search count reset.");
   };
 
   useEffect(() => {
     const refresh = () => {
-      setSearchStats(getLast24HourCounts());
       setTodayTotal(getTodayTotal());
+      setSparklineData(getCountsForRange(startDate, endDate));
     };
     refresh();
     const timer = setInterval(refresh, 30000);
     return () => clearInterval(timer);
-  }, []); // refreshKey intentionally omitted — manual refresh in resetTodayCount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
 
   return (
     <div className="space-y-6">
@@ -1300,32 +1327,41 @@ function MonetizationApiSection() {
 
       {/* Live Revenue Card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-base font-semibold text-gray-800 flex-1">
+        {/* Header row: title | preset pills | live badge */}
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-semibold text-gray-800 flex-1 min-w-0">
             Revenue & Search Analytics
           </h3>
-          {/* Data management buttons */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={exportSearchCSV}
-              type="button"
-              title="Download report"
-              data-ocid="monetization.revenue.export_button"
-              className="h-7 w-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white/10 text-gray-500 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-            >
-              <Download size={14} />
-            </button>
-            <button
-              onClick={() => setShowResetConfirm(true)}
-              type="button"
-              title="Start fresh for today"
-              data-ocid="monetization.revenue.delete_button"
-              className="h-7 w-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white/10 text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-            >
-              <Trash2 size={14} />
-            </button>
+
+          {/* Quick-select preset pills */}
+          <div
+            className="flex items-center gap-1"
+            data-ocid="monetization.revenue.tab"
+          >
+            {(["today", "7d", "month"] as const).map((preset) => {
+              const labels: Record<string, string> = {
+                today: "Today",
+                "7d": "Last 7d",
+                month: "This Month",
+              };
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => handlePreset(preset)}
+                  className={[
+                    "px-2.5 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                    selectedPreset === preset
+                      ? "bg-[#1A73E8] text-white shadow-sm"
+                      : "border border-gray-200 text-gray-600 bg-white hover:bg-gray-50",
+                  ].join(" ")}
+                >
+                  {labels[preset]}
+                </button>
+              );
+            })}
           </div>
+
           {/* Live pulse badge */}
           <div className="flex items-center gap-1.5 bg-green-50 px-2.5 py-1 rounded-full">
             <span className="relative flex h-2 w-2">
@@ -1334,6 +1370,73 @@ function MonetizationApiSection() {
             </span>
             <span className="text-xs font-semibold text-green-700">Live</span>
           </div>
+        </div>
+
+        {/* Controls row: date inputs + Export + Reset — always visible */}
+        <div
+          className="flex flex-wrap items-end gap-2"
+          data-ocid="monetization.revenue.date_range_picker"
+        >
+          <div className="flex flex-col gap-0.5">
+            <label
+              htmlFor="range-start"
+              className="text-[10px] font-medium text-gray-500 uppercase tracking-wide"
+            >
+              From
+            </label>
+            <input
+              id="range-start"
+              type="date"
+              value={startDate}
+              max={endDate}
+              onChange={(e) => {
+                setStartDate(e.target.value);
+                setSelectedPreset("custom");
+                setSparklineData(getCountsForRange(e.target.value, endDate));
+              }}
+              className="px-2 py-1.5 text-xs rounded-lg border border-gray-200 bg-gray-50 text-gray-700 focus:outline-none focus:border-[#1A73E8] focus:bg-white transition-colors"
+            />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <label
+              htmlFor="range-end"
+              className="text-[10px] font-medium text-gray-500 uppercase tracking-wide"
+            >
+              To
+            </label>
+            <input
+              id="range-end"
+              type="date"
+              value={endDate}
+              min={startDate}
+              max={today}
+              onChange={(e) => {
+                setEndDate(e.target.value);
+                setSelectedPreset("custom");
+                setSparklineData(getCountsForRange(startDate, e.target.value));
+              }}
+              className="px-2 py-1.5 text-xs rounded-lg border border-gray-200 bg-gray-50 text-gray-700 focus:outline-none focus:border-[#1A73E8] focus:bg-white transition-colors"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={exportSearchCSV}
+            data-ocid="monetization.revenue.export_button"
+            title="Export Selected Range"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#1A73E8] rounded-lg hover:bg-[#1557B0] transition-colors shadow-sm"
+          >
+            <Download size={12} />
+            Export
+          </button>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            type="button"
+            title="Start fresh for today"
+            data-ocid="monetization.revenue.delete_button"
+            className="h-[30px] w-[30px] flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+          >
+            <Trash2 size={13} />
+          </button>
         </div>
 
         {/* Reset confirmation dialog */}
@@ -1385,17 +1488,27 @@ function MonetizationApiSection() {
           </div>
         </div>
 
-        {/* Sparkline — last 24 hours */}
+        {/* Sparkline — dynamic date range */}
         <div>
           <p className="text-xs font-medium text-gray-500 mb-2">
-            Search Volume — Last 24 Hours
+            {selectedPreset === "today"
+              ? "Search Volume — Last 24 Hours"
+              : selectedPreset === "7d"
+                ? "Search Volume — Last 7 Days"
+                : selectedPreset === "month"
+                  ? "Search Volume — This Month"
+                  : `Search Volume — ${startDate} to ${endDate}`}
           </p>
           <div className="bg-gray-50 rounded-xl p-3">
-            <SparklineChart data={searchStats} />
+            <SparklineChart data={sparklineData} />
           </div>
           <div className="flex justify-between mt-1 px-1">
-            <span className="text-[10px] text-gray-400">24h ago</span>
-            <span className="text-[10px] text-gray-400">Now</span>
+            <span className="text-[10px] text-gray-400">
+              {selectedPreset === "today" ? "24h ago" : startDate}
+            </span>
+            <span className="text-[10px] text-gray-400">
+              {selectedPreset === "today" ? "Now" : endDate}
+            </span>
           </div>
         </div>
 
