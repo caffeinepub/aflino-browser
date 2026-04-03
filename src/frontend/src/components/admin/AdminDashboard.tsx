@@ -3,6 +3,8 @@ import {
   Check,
   DollarSign,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   Globe,
   LayoutGrid,
@@ -10,6 +12,7 @@ import {
   MapPin,
   Menu,
   Palette,
+  RotateCcw,
   Settings,
   Shield,
   ShieldCheck,
@@ -1018,64 +1021,34 @@ function LanguageManagerSection() {
   );
 }
 
-function SparklineChart({ data }: { data: number[] }) {
-  const max = Math.max(...data, 1);
-  const width = 300;
-  const height = 48;
-  const points = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - (v / max) * height;
-      return `${x},${y}`;
-    })
-    .join(" ");
-  const areaPoints = `0,${height} ${data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - (v / max) * height;
-      return `${x},${y}`;
-    })
-    .join(" ")} ${width},${height}`;
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="w-full h-12"
-      preserveAspectRatio="none"
-      aria-label="Search volume sparkline chart"
-      role="img"
-    >
-      <title>Search volume over last 24 hours</title>
-      <defs>
-        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1A73E8" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="#1A73E8" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={areaPoints} fill="url(#sparkGrad)" />
-      <polyline
-        points={points}
-        fill="none"
-        stroke="#1A73E8"
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function MonetizationApiSection() {
   const {
     googleSearchApiKey,
     searchEngineCx,
     googlePartnerTrackingId,
     inAppSearchEnabled,
+    disabledEngines,
     setMultiEngineConfig,
+    setDisabledEngines,
   } = useShortcutsStore();
 
-  const maskApiKey = (key: string) =>
-    key ? `${"•".repeat(Math.max(0, key.length - 4))}${key.slice(-4)}` : "";
+  // Draft state — only written to store on Save
+  const [draftApiKey, setDraftApiKey] = useState<string>(
+    () => googleSearchApiKey,
+  );
+  const [draftCx, setDraftCx] = useState<string>(() => searchEngineCx);
+  const [draftTrackingId, setDraftTrackingId] = useState<string>(
+    () => googlePartnerTrackingId,
+  );
+  const [localDisabledEngines, setLocalDisabledEngines] = useState<
+    SearchEngine[]
+  >(() => disabledEngines);
 
+  // Eye toggle state
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showCx, setShowCx] = useState(false);
+
+  // Revenue Card state
   const [todayTotal, setTodayTotal] = useState<number>(() => getTodayTotal());
   const [rpm, setRpm] = useState<number>(() => {
     const saved = localStorage.getItem("aflino_rpm");
@@ -1150,6 +1123,38 @@ function MonetizationApiSection() {
     toast.success("Search count reset.");
   };
 
+  const handleSave = () => {
+    setMultiEngineConfig({
+      googleSearchApiKey: draftApiKey,
+      searchEngineCx: draftCx,
+      googlePartnerTrackingId: draftTrackingId,
+    });
+    setDisabledEngines(localDisabledEngines);
+    toast.success("API Settings Updated Successfully");
+  };
+
+  const handleReset = () => {
+    setDraftApiKey("");
+    setDraftCx("");
+    setDraftTrackingId("");
+    setLocalDisabledEngines([]);
+    setMultiEngineConfig({
+      googleSearchApiKey: "",
+      searchEngineCx: "",
+      googlePartnerTrackingId: "",
+    });
+    setDisabledEngines([]);
+    toast.info("Settings reset to default");
+  };
+
+  const toggleEngine = (engine: SearchEngine) => {
+    setLocalDisabledEngines((prev) =>
+      prev.includes(engine)
+        ? prev.filter((e) => e !== engine)
+        : [...prev, engine],
+    );
+  };
+
   useEffect(() => {
     const refresh = () => {
       setTodayTotal(getTodayTotal());
@@ -1160,6 +1165,12 @@ function MonetizationApiSection() {
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
+
+  const managedEngines: { id: SearchEngine; label: string }[] = [
+    { id: "google", label: "Google" },
+    { id: "bing", label: "Bing" },
+    { id: "duckduckgo", label: "DuckDuckGo" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -1191,6 +1202,53 @@ function MonetizationApiSection() {
         </div>
       </div>
 
+      {/* Engine Management Card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+        <div>
+          <h3 className="text-base font-semibold text-gray-800">
+            Engine Management
+          </h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Toggle engines off to remove them from the search options in the
+            browser.
+          </p>
+        </div>
+        <div className="flex flex-col divide-y divide-gray-50">
+          {managedEngines.map((engine) => {
+            const isDisabled = localDisabledEngines.includes(engine.id);
+            return (
+              <div
+                key={engine.id}
+                className="flex items-center justify-between py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-700">
+                    {engine.label}
+                  </span>
+                  <span
+                    className={[
+                      "text-xs font-semibold px-2 py-0.5 rounded-full",
+                      isDisabled
+                        ? "bg-red-50 text-red-500"
+                        : "bg-green-50 text-green-600",
+                    ].join(" ")}
+                  >
+                    {isDisabled ? "Inactive" : "Active"}
+                  </span>
+                </div>
+                <Toggle
+                  value={!isDisabled}
+                  onChange={() => toggleEngine(engine.id)}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-400 italic">
+          Changes take effect after saving.
+        </p>
+      </div>
+
       {/* API Configuration Card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         <h3 className="text-base font-semibold text-gray-800">
@@ -1205,25 +1263,25 @@ function MonetizationApiSection() {
           >
             Google Custom Search API Key
           </label>
-          <input
-            id="mon-api-key"
-            data-ocid="monetization.api_key.input"
-            type="password"
-            placeholder="Enter API key — stored securely, never displayed"
-            defaultValue=""
-            onChange={(e) =>
-              setMultiEngineConfig({ googleSearchApiKey: e.target.value })
-            }
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
-          />
-          {googleSearchApiKey && (
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              🔒 Key saved. Showing last 4 chars:{" "}
-              <code className="font-mono font-bold text-gray-600">
-                {maskApiKey(googleSearchApiKey)}
-              </code>
-            </p>
-          )}
+          <div className="relative">
+            <input
+              id="mon-api-key"
+              data-ocid="monetization.api_key.input"
+              type={showApiKey ? "text" : "password"}
+              placeholder="Enter API key — stored securely, never displayed"
+              value={draftApiKey}
+              onChange={(e) => setDraftApiKey(e.target.value)}
+              className="w-full px-3 py-2.5 pr-10 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+            />
+            <button
+              type="button"
+              onClick={() => setShowApiKey((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label={showApiKey ? "Hide API key" : "Show API key"}
+            >
+              {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </div>
 
         {/* CX */}
@@ -1231,17 +1289,25 @@ function MonetizationApiSection() {
           <label htmlFor="mon-cx" className="text-sm font-medium text-gray-700">
             Search Engine ID (CX)
           </label>
-          <input
-            id="mon-cx"
-            data-ocid="monetization.cx.input"
-            type="text"
-            placeholder="e.g. 017576662512468239146:omuauf_lfve"
-            value={searchEngineCx}
-            onChange={(e) =>
-              setMultiEngineConfig({ searchEngineCx: e.target.value })
-            }
-            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
-          />
+          <div className="relative">
+            <input
+              id="mon-cx"
+              data-ocid="monetization.cx.input"
+              type={showCx ? "text" : "password"}
+              placeholder="e.g. 017576662512468239146:omuauf_lfve"
+              value={draftCx}
+              onChange={(e) => setDraftCx(e.target.value)}
+              className="w-full px-3 py-2.5 pr-10 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCx((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label={showCx ? "Hide CX" : "Show CX"}
+            >
+              {showCx ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
           <p className="text-xs text-gray-400">
             Get this from{" "}
             <span className="font-medium text-gray-500">
@@ -1263,10 +1329,8 @@ function MonetizationApiSection() {
             data-ocid="monetization.tracking_id.input"
             type="text"
             placeholder="e.g. aflino-browser-partner-001"
-            value={googlePartnerTrackingId}
-            onChange={(e) =>
-              setMultiEngineConfig({ googlePartnerTrackingId: e.target.value })
-            }
+            value={draftTrackingId}
+            onChange={(e) => setDraftTrackingId(e.target.value)}
             className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
           />
           <p className="text-xs text-gray-400">
@@ -1323,6 +1387,28 @@ function MonetizationApiSection() {
             ? "API keys configured — in-app results are ready."
             : "API Key and CX are required to activate in-app results."}
         </div>
+      </div>
+
+      {/* Save / Reset Buttons */}
+      <div className="flex gap-3">
+        <button
+          type="button"
+          data-ocid="monetization.save_button"
+          onClick={handleSave}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#1A73E8] hover:bg-[#1557B0] text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
+        >
+          <Check size={16} />
+          Save Settings
+        </button>
+        <button
+          type="button"
+          data-ocid="monetization.reset_button"
+          onClick={handleReset}
+          className="flex items-center justify-center gap-2 px-4 py-3 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium rounded-xl transition-colors"
+        >
+          <RotateCcw size={15} />
+          Reset to Default
+        </button>
       </div>
 
       {/* Live Revenue Card */}
@@ -1425,128 +1511,145 @@ function MonetizationApiSection() {
             title="Export Selected Range"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#1A73E8] rounded-lg hover:bg-[#1557B0] transition-colors shadow-sm"
           >
-            <Download size={12} />
+            <Download size={13} />
             Export
           </button>
           <button
-            onClick={() => setShowResetConfirm(true)}
             type="button"
+            data-ocid="monetization.revenue.reset_button"
             title="Start fresh for today"
-            data-ocid="monetization.revenue.delete_button"
-            className="h-[30px] w-[30px] flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-100 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
           >
             <Trash2 size={13} />
+            Reset
           </button>
         </div>
 
-        {/* Reset confirmation dialog */}
+        {/* Reset Confirm Dialog */}
         {showResetConfirm && (
           <div
-            className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3"
-            data-ocid="monetization.revenue.dialog"
+            className="bg-red-50 border border-red-100 rounded-xl p-4 flex flex-col gap-3"
+            data-ocid="monetization.revenue.reset_confirm.dialog"
           >
-            <p className="text-sm text-red-800 font-medium">
-              Reset today's search data?
+            <p className="text-sm text-red-700 font-medium">
+              ⚠️ Are you sure you want to reset today's search data? This cannot
+              be undone.
             </p>
-            <p className="text-xs text-red-600">
-              This cannot be undone. Today's search count will be set to zero.
-            </p>
-            <div className="flex items-center gap-2 justify-end">
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setShowResetConfirm(false)}
-                data-ocid="monetization.revenue.cancel_button"
-                className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                data-ocid="monetization.revenue.reset_confirm.confirm_button"
+                onClick={resetTodayCount}
+                className="px-4 py-1.5 text-xs font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
-                Cancel
+                Yes, Reset
               </button>
               <button
                 type="button"
-                onClick={resetTodayCount}
-                data-ocid="monetization.revenue.confirm_button"
-                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                data-ocid="monetization.revenue.reset_confirm.cancel_button"
+                onClick={() => setShowResetConfirm(false)}
+                className="px-4 py-1.5 text-xs font-semibold border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Reset
+                Cancel
               </button>
             </div>
           </div>
         )}
 
-        {/* Main stats row */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gradient-to-br from-[#1A73E8] to-[#1557B0] rounded-xl p-4 text-center shadow-sm">
-            <p className="text-3xl font-black text-white">
-              {todayTotal.toLocaleString()}
-            </p>
-            <p className="text-xs text-blue-100 mt-1">Total Searches Today</p>
-          </div>
-          <div className="bg-gray-50 rounded-xl p-4 text-center">
-            <p className="text-3xl font-black text-gray-800">
-              ${((todayTotal / 1000) * rpm).toFixed(2)}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">Estimated Earnings</p>
-          </div>
-        </div>
-
-        {/* Sparkline — dynamic date range */}
-        <div>
-          <p className="text-xs font-medium text-gray-500 mb-2">
-            {selectedPreset === "today"
-              ? "Search Volume — Last 24 Hours"
-              : selectedPreset === "7d"
-                ? "Search Volume — Last 7 Days"
-                : selectedPreset === "month"
-                  ? "Search Volume — This Month"
-                  : `Search Volume — ${startDate} to ${endDate}`}
-          </p>
-          <div className="bg-gray-50 rounded-xl p-3">
-            <SparklineChart data={sparklineData} />
-          </div>
-          <div className="flex justify-between mt-1 px-1">
-            <span className="text-[10px] text-gray-400">
-              {selectedPreset === "today" ? "24h ago" : startDate}
-            </span>
-            <span className="text-[10px] text-gray-400">
-              {selectedPreset === "today" ? "Now" : endDate}
-            </span>
-          </div>
-        </div>
-
-        {/* RPM input */}
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="rpm-input"
-            className="text-sm font-medium text-gray-700"
+        {/* Totals */}
+        <div className="grid grid-cols-2 gap-3">
+          <div
+            className="rounded-xl p-3 text-white"
+            style={{
+              background: "linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)",
+            }}
           >
-            RPM (Revenue Per Mille)
-          </label>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500 text-sm font-medium">$</span>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={rpm}
-              onChange={(e) => {
-                const v = Number.parseFloat(e.target.value) || 0;
-                setRpm(v);
-                localStorage.setItem("aflino_rpm", String(v));
-              }}
-              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50"
-              placeholder="e.g. 2.50"
-              id="rpm-input"
-              data-ocid="monetization.rpm.input"
-            />
+            <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80 mb-1">
+              Total Searches Today
+            </p>
+            <p className="text-2xl font-bold">{todayTotal.toLocaleString()}</p>
           </div>
-          <p className="text-xs text-gray-400">
-            Estimated earnings = (Searches / 1000) × RPM
-          </p>
+          <div className="rounded-xl p-3 bg-gray-50 border border-gray-100">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                Est. Earnings
+              </p>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] text-gray-400">RPM $</span>
+                <input
+                  type="number"
+                  value={rpm}
+                  min={0}
+                  step={0.1}
+                  onChange={(e) => {
+                    const v = Number.parseFloat(e.target.value) || 0;
+                    setRpm(v);
+                    localStorage.setItem("aflino_rpm", String(v));
+                  }}
+                  className="w-12 text-[10px] border border-gray-200 rounded px-1 py-0.5 text-gray-700 focus:outline-none focus:border-blue-400"
+                />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-gray-800">
+              ${((todayTotal / 1000) * rpm).toFixed(4)}
+            </p>
+          </div>
         </div>
 
-        {/* Refresh note */}
-        <p className="text-[11px] text-gray-400 text-center">
-          Auto-refreshes every 30 seconds · Data stored locally
-        </p>
+        {/* Sparkline */}
+        <div>
+          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">
+            {selectedPreset === "today"
+              ? "Last 24 Hours"
+              : selectedPreset === "7d"
+                ? "Last 7 Days"
+                : selectedPreset === "month"
+                  ? "This Month"
+                  : `${startDate} → ${endDate}`}
+          </p>
+          {sparklineData.length > 0 ? (
+            <svg
+              viewBox={`0 0 ${sparklineData.length * 10} 40`}
+              className="w-full h-10"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label="Search activity sparkline chart"
+            >
+              <defs>
+                <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#1A73E8" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#1A73E8" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              {(() => {
+                const max = Math.max(...sparklineData, 1);
+                const pts = sparklineData.map(
+                  (v, i) => `${i * 10},${40 - (v / max) * 36}`,
+                );
+                const pathD = `M${pts.join("L")}`;
+                const areaD = `${pathD}L${(sparklineData.length - 1) * 10},40L0,40Z`;
+                return (
+                  <>
+                    <path d={areaD} fill="url(#sparkGrad)" />
+                    <path
+                      d={pathD}
+                      fill="none"
+                      stroke="#1A73E8"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </>
+                );
+              })()}
+            </svg>
+          ) : (
+            <div className="h-10 flex items-center justify-center text-xs text-gray-400">
+              No data for selected range
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

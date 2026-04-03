@@ -340,6 +340,8 @@ interface ShortcutsState extends MultiEngineApiConfig {
   setDataSaver: (v: boolean) => void;
   tourCompleted: boolean;
   setTourCompleted: (val: boolean) => void;
+  disabledEngines: SearchEngine[];
+  setDisabledEngines: (engines: SearchEngine[]) => void;
   featureAnalytics: Record<string, number>;
   legalPages: Record<string, string>;
   setLegalPage: (slug: string, html: string) => void;
@@ -443,6 +445,7 @@ export const useShortcutsStore = create<ShortcutsState>()(
       jsEnabled: true,
       dataSaver: false,
       tourCompleted: false,
+      disabledEngines: [],
       featureAnalytics: {},
       legalPages: {},
       insightsBannerDismissed: false,
@@ -557,6 +560,21 @@ export const useShortcutsStore = create<ShortcutsState>()(
       setJsEnabled: (enabled) => set({ jsEnabled: enabled }),
       setDataSaver: (v) => set({ dataSaver: v }),
       setTourCompleted: (val) => set({ tourCompleted: val }),
+      setDisabledEngines: (engines) =>
+        set((state) => {
+          // Auto-fallback: if current searchEngine is being disabled, switch to next active
+          const PICKER_ENGINES: SearchEngine[] = [
+            "google",
+            "bing",
+            "duckduckgo",
+          ];
+          let nextEngine = state.searchEngine;
+          if (engines.includes(state.searchEngine)) {
+            const fallback = PICKER_ENGINES.find((e) => !engines.includes(e));
+            nextEngine = fallback ?? state.searchEngine;
+          }
+          return { disabledEngines: engines, searchEngine: nextEngine };
+        }),
       setLegalPage: (slug, html) =>
         set((state) => ({
           legalPages: { ...state.legalPages, [slug]: html },
